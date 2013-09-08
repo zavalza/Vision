@@ -36,7 +36,7 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
-
+void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
 int main(int argc,char* argv[])
 {
 	//establishing connection with the quadcopter
@@ -54,6 +54,7 @@ int main(int argc,char* argv[])
 	Mat currentImage = Mat(240, 320, CV_8UC3);
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
+	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 
 	namedWindow("ParrotCam");
@@ -158,6 +159,13 @@ int main(int argc,char* argv[])
             flipImageEfficient(snapshot, flippedImage);
             imshow("Original", snapshot);
             imshow("Flipped", flippedImage);
+            break;
+	    // *************Transformar_a_HSV**************
+            case 't': 
+            snapshot = currentImage;
+            rgb2hsv(snapshot, hsvImage);
+            imshow("Original", snapshot);
+            imshow("HSV", hsvImage);
             break;
             // ***************Punto 1***************
             case 27: stop = true; break;
@@ -280,6 +288,85 @@ void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
 		}
 	}
 }
+
+void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
+{
+	int channels = sourceImage.channels(); 	// Numero de canales
+	float vector_r_lineal = 0;
+	float vector_g_lineal = 0;
+	float vector_b_lineal = 0;
+	char max='n';
+	char min='n';
+	int max_value = 0;
+	int min_value = 0;
+	
+	for(int y = 0; y < sourceImage.rows; ++y)
+	{
+		for(int x = 0; x < sourceImage.cols; ++x)
+		{
+			vector_r_lineal = (float)sourceImage.at<Vec3b>(y, x)[2] / (float)255;
+			vector_g_lineal = (float)sourceImage.at<Vec3b>(y, x)[1] / (float)255;
+			vector_b_lineal = (float)sourceImage.at<Vec3b>(y, x)[0] / (float)255;
+			//Encuentra maximo y minimo
+			for (int i = 0; i < channels; ++i)
+			{
+				if (sourceImage.at<Vec3b>(y, x)[i] > max_value)
+				{
+					max_value = sourceImage.at<Vec3b>(y, x)[i];
+					switch(i)
+					{
+						  case 0: max = 'b'; // Blue
+						  break;
+						  case 1: max = 'g'; // Green
+						  break;
+						  case 2: max = 'r'; // Red
+						  break;
+						  default:
+						  break;
+					}
+				}
+				else if(sourceImage.at<Vec3b>(y, x)[i] < min_value)
+				{
+					min_value = sourceImage.at<Vec3b>(y, x)[i];
+					switch(i)
+					{
+						case 0: min = 'b'; // Blue
+						break;
+						case 1: min = 'g'; // Green
+						break;
+						case 2: min = 'r'; // Red
+						break;
+						default:
+						break;
+					}
+				}
+			}
+			
+			float max_value_lineal = (float)max_value/(float)255;
+			float min_value_lineal = (float)min_value/(float)255;
+			float v = max_value_lineal;
+			float s = 0; //Default si v = 0
+			float h = 180; //Default si v = 0
+			if(v != 0) //Si el máximo no es cero
+			{
+				s = (max_value_lineal - min_value_lineal) / max_value_lineal;
+				switch(max)
+				{
+					case 'r': h=(vector_g_lineal-vector_b_lineal)*60/(max_value_lineal-min_value_lineal);
+					case 'g': h=((vector_b_lineal-vector_r_lineal)*60/(max_value_lineal-min_value_lineal))+120;
+					case 'b': h=((vector_r_lineal-vector_g_lineal)*60/(max_value_lineal-min_value_lineal))+240;
+				}
+			}
+			
+			//se sustituyen los valores hsv en cada canal de 8 bits
+			hsvImage.at<Vec3b>(y, x)[0]=v*255;
+			hsvImage.at<Vec3b>(y, x)[1]=s*255;
+			hsvImage.at<Vec3b>(y, x)[2]=h/2;//Se divide para que se pueda representar en 8 bits
+		}
+	}
+	
+}
+
 void rawToMat(Mat &destImage, CRawImage* sourceImage)
 {	
 	uchar *pointerImage = destImage.ptr(0);
