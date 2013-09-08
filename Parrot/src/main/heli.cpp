@@ -17,7 +17,10 @@
 using namespace std;
 using namespace cv;
 
+int RTemp = 0, GTemp = 0, BTemp = 0;
+int RED = 0, GREEN = 0, BLUE = 0;
 vector<Point> points;
+int coordinateX, coordinateY;
 bool stop = false;
 CRawImage *image;
 CHeli *heli;
@@ -102,7 +105,17 @@ int main(int argc,char* argv[])
         fprintf(stdout, "  TakeOff : %d \n", joypadTakeOff);
         fprintf(stdout, "  Land    : %d \n", joypadLand);
         fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
-
+        fprintf(stdout, "Click coordinates: (%d, %d) \n", coordinateX, coordinateY);
+        if (currentImage.data) 
+		{
+	        RTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[2];
+	        GTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[1];
+	        BTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[0];
+    	}
+    	RED = RTemp;
+    	GREEN = GTemp; 
+    	BLUE = BTemp;
+        fprintf(stdout, "R: %d, G: %d, B: %d", RED, GREEN, BLUE);
 
 		//image is captured
 		heli->renewImage(image);
@@ -110,17 +123,6 @@ int main(int argc,char* argv[])
 		// Copy to OpenCV Mat
 		rawToMat(currentImage, image);
 		imshow("ParrotCam", currentImage);
-
-		if (currentImage.data) 
-		{
-            /* Draw all points */
-            for (int i = 0; i < points.size(); ++i) {
-                circle(currentImage, (Point)points[i], 5, Scalar( 0, 0, 255 ), CV_FILLED);
-            }
-
-            /* Show image */
-            imshow("Image", currentImage);
-		}
 
         char key = waitKey(5);
 		switch (key) {
@@ -252,8 +254,10 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
     switch (event)
     {
         case CV_EVENT_LBUTTONDOWN:
-            cout << "  Mouse X, Y: " << x << ", " << y ;
-            cout << endl;
+            //cout << "  Mouse X, Y: " << x << ", " << y ;
+            //cout << endl;
+            coordinateX = x;
+            coordinateY = y;
             /*  Draw a point */
             points.push_back(Point(x, y));
             break;
@@ -267,7 +271,7 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
 {
 	int channels = sourceImage.channels(); 	// Numero de canales
-	int average;
+	// int average;
 	int pond;
 	for(int y = 0; y < sourceImage.rows; ++y)
 	{
