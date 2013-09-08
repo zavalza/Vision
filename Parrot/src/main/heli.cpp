@@ -33,7 +33,6 @@ int joypadRoll, joypadPitch, joypadVerticalSpeed, joypadYaw;
 bool navigatedWithJoystick, joypadTakeOff, joypadLand, joypadHover;
 
 void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
-//void blackNwhite (Mat &sourceImage, int umbral);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
@@ -214,40 +213,6 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage)
 			}
 	}
 }
-/*
-void blackNwhite (Mat &sourceImage, int umbral)
-{
-	int channels = sourceImage.channels();
-	for(int y = 0; y < sourceImage.rows; ++y)
-	{
-		for(int x = 0; x < sourceImage.cols; ++x)
-		{
-			for(int i = 0; i < channels; ++i)
-			{
-				switch(i)
-				{
-					case 0: sourceImage.at<Vec3b>(y, x)[i] = 0.1 * sourceImage.at<Vec3b>(y, x)[i]; // Blue
-					break;
-					case 1: sourceImage.at<Vec3b>(y, x)[i] = 0.3 * sourceImage.at<Vec3b>(y, x)[i]; // Green
-					break;
-					case 2: sourceImage.at<Vec3b>(y, x)[i] = 0.6 * sourceImage.at<Vec3b>(y, x)[i]; // Red
-					break;
-					default:
-					break;
-				}				 
-			}
-			if(sourceImage.at<Vec3b>(y, x)[i] > umbral)
-			{	
-				sourceImage.at<Vec3b>(y, x)[i] = 255;
-			}
-			else
-			{
-				sourceImage.at<Vec3b>(y, x)[i] = 0;
-			}
-		}
-	}
-}
-*/
 
 void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
