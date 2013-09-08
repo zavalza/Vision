@@ -17,6 +17,7 @@
 using namespace std;
 using namespace cv;
 
+Mat currentImage = Mat(240, 320, CV_8UC3);
 int RTemp = 0, GTemp = 0, BTemp = 0;
 int RED = 0, GREEN = 0, BLUE = 0;
 vector<Point> points;
@@ -51,7 +52,6 @@ int main(int argc,char* argv[])
     joypadPitch = joypadRoll = joypadYaw = joypadVerticalSpeed = 0.0;
 
 	// Destination OpenCV Mat	
-	Mat currentImage = Mat(240, 320, CV_8UC3);
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
@@ -105,16 +105,7 @@ int main(int argc,char* argv[])
         fprintf(stdout, "  Land    : %d \n", joypadLand);
         fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
         fprintf(stdout, "Click coordinates: (%d, %d) \n", coordinateX, coordinateY);
-        if (currentImage.data) 
-		{
-	        RTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[2];
-	        GTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[1];
-	        BTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[0];
-    	}
-    	RED = RTemp;
-    	GREEN = GTemp; 
-    	BLUE = BTemp;
-        fprintf(stdout, "R: %d, G: %d, B: %d", RED, GREEN, BLUE);
+        fprintf(stdout, "R: %d, G: %d, B: %d\n", RED, GREEN, BLUE);
 
 		//image is captured
 		heli->renewImage(image);
@@ -219,10 +210,11 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
     switch (event)
     {
         case CV_EVENT_LBUTTONDOWN:
-            //cout << "  Mouse X, Y: " << x << ", " << y ;
-            //cout << endl;
             coordinateX = x;
             coordinateY = y;
+            RED = currentImage.at<Vec3b>(coordinateY, coordinateX)[2];
+	        GREEN = currentImage.at<Vec3b>(coordinateY, coordinateX)[1];
+	        BLUE = currentImage.at<Vec3b>(coordinateY, coordinateX)[0];
             /*  Draw a point */
             points.push_back(Point(x, y));
             break;
