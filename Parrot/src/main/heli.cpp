@@ -17,7 +17,8 @@
 using namespace std;
 using namespace cv;
 
-int valCaptCtrl,valorDelta, deltaClick;
+int freeze = 0;
+int deltaClick;
 int valBclick,valGclick,valRclick,valBin;
 int limInfB = 0, limSupB = 0, limInfG = 0, limSupG = 0, limInfR = 0, limSupR = 0;
 Mat currentImage = Mat(240, 320, CV_8UC3);
@@ -141,21 +142,23 @@ int main(int argc,char* argv[])
 			case 'i': pitch = -20000.0; break;
 			case 'k': pitch = 20000.0; break;
             case 'h': hover = (hover + 1) % 2; break;
-            case 'f': snapshot = currentImage; imshow("Frozen image", snapshot); break;
+            case 'f': freeze ^= 1;  break;
             case 27: stop = true; break;
             default: pitch = roll = yaw = height = 0.0;
 		}
 
-		filteredImage = highlightObject(currentImage);
-		imshow("Filtered image", filteredImage);
-		luminosity(filteredImage, bwImage, atoi(argv[1]));
-        imshow("Black and White", bwImage);
-        flipImageEfficient(currentImage, flippedImage);
-        imshow("Flipped", flippedImage);
-        rgb2hsv(currentImage, hsvImage);
-        imshow("HSV", hsvImage);
-        generateRedHistogram(currentImage, redHistogram);
-        imshow("Red Histogram",redHistogram);
+		if(!freeze){
+			filteredImage = highlightObject(currentImage);
+			imshow("Filtered image", filteredImage);
+			luminosity(filteredImage, bwImage, atoi(argv[1]));
+	        imshow("Black and White", bwImage);
+	        flipImageEfficient(currentImage, flippedImage);
+	        imshow("Flipped", flippedImage);
+	        rgb2hsv(currentImage, hsvImage);
+	        imshow("HSV", hsvImage);
+	        generateRedHistogram(currentImage, redHistogram);
+	        imshow("Red Histogram",redHistogram);
+    	}
 /*
         if (joypadTakeOff) {
             heli->takeoff();
@@ -401,7 +404,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 {
-	int channels = sourceImage.channels(); 	// Numero de canales 
+	//int channels = sourceImage.channels(); 	// Numero de canales 
 	int colorSat;
 
 	//Creo un arreglo de 256 localidades y despues se llena con 0's
@@ -448,9 +451,6 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 			redHistogram.at<Vec3b>(y, x)[1] = 0;
 
 		}
-
-		
-
 }
 
 Mat highlightObject(Mat sourceImage)
