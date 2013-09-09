@@ -43,7 +43,7 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
-
+void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
 
 int main(int argc,char* argv[])
 {
@@ -64,6 +64,7 @@ int main(int argc,char* argv[])
 	Mat filteredImage = Mat(240, 320, CV_8UC3);
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
+	Mat redHistogram = Mat(256,256,CV_8UC3);
 
 	namedWindow("ParrotCam");
     setMouseCallback("ParrotCam", mouseCoordinates);
@@ -153,6 +154,8 @@ int main(int argc,char* argv[])
         imshow("Flipped", flippedImage);
         rgb2hsv(currentImage, hsvImage);
         imshow("HSV", hsvImage);
+        generateRedHistogram(currentImage,redHistogram);
+        imshow("Red Histogram",redHistogram);
 /*
         if (joypadTakeOff) {
             heli->takeoff();
@@ -394,6 +397,66 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 		}
 	}
 	
+}
+
+void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
+{
+	int channels = sourceImage.channels(); 	// Numero de canales 
+	int colorSat;
+
+	//Creo un arreglo de 256 localidades y despues se llena con 0's
+	int arr[256];
+
+	for (int i = 0; i < 256; i++)
+	{
+		arr[i] = 0;
+	}
+
+	for(int y = 0; y < sourceImage.rows; ++y)
+	{
+		for(int x = 0; x < sourceImage.cols; ++x)
+		{
+				//Saco la intensidad del rojo y la guardo en colorSat
+				colorSat = sourceImage.at<Vec3b>(y,x)[2];
+				//busco la casilla dond esta casa valor
+				arr[colorSat] = arr[colorSat] + 1;
+		}
+
+	}
+
+	for(int i = 0; i < 256; i++){
+
+		cout << arr[i] << endl;
+		}
+
+	//Pinto toda la imagen de blanco
+	for(int y = 0; y < redHistogram.rows; ++y)
+		for(int x = 0; x < redHistogram.cols; ++x)
+		{
+			redHistogram.at<Vec3b>(y, x)[0] = 255;
+			redHistogram.at<Vec3b>(y, x)[1] = 255;
+			redHistogram.at<Vec3b>(y, x)[2] = 255;
+		}
+
+
+		//Normalizo el arr[]
+		for(int i = 0; i < 256; i++){
+
+			arr[i] = 10*((arr[i]*255)/76800);
+			//cout << arr[i] << endl;
+		}
+
+
+	for(int x = 1; x < redHistogram.cols; ++x)
+		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
+		{
+			redHistogram.at<Vec3b>(y, x)[0] = 0;
+			redHistogram.at<Vec3b>(y, x)[1] = 0;
+
+		}
+
+		
+
 }
 
 Mat highlightObject(Mat sourceImage)
