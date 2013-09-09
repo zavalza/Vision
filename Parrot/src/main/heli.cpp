@@ -17,8 +17,13 @@
 using namespace std;
 using namespace cv;
 
+int valCaptCtrl,valorDelta, deltaClick;
+int valBclick,valGclick,valRclick,valBin;
+int limInfB = 0, limSupB = 0, limInfG = 0, limSupG = 0, limInfR = 0, limSupR = 0;
+Mat currentImage = Mat(240, 320, CV_8UC3);
+int analysis = 0;
 int RTemp = 0, GTemp = 0, BTemp = 0;
-int RED = 0, GREEN = 0, BLUE = 0;
+int redClick = 0, greenClick = 0, blueClick = 0;
 vector<Point> points;
 int coordinateX, coordinateY;
 bool stop = false;
@@ -32,6 +37,7 @@ bool useJoystick;
 int joypadRoll, joypadPitch, joypadVerticalSpeed, joypadYaw;
 bool navigatedWithJoystick, joypadTakeOff, joypadLand, joypadHover;
 
+Mat highlightObject(Mat sourceImage);
 void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
@@ -41,7 +47,7 @@ int main(int argc,char* argv[])
 {
 	//establishing connection with the quadcopter
 	heli = new CHeli();
-	
+	Mat imgFiltrada = Mat(240, 320, CV_8UC3);
 	//this class holds the image from the drone	
 	image = new CRawImage(320,240);
 
@@ -51,9 +57,9 @@ int main(int argc,char* argv[])
     joypadPitch = joypadRoll = joypadYaw = joypadVerticalSpeed = 0.0;
 
 	// Destination OpenCV Mat	
-	Mat currentImage = Mat(240, 320, CV_8UC3);
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
+	Mat filteredImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 
 	namedWindow("ParrotCam");
@@ -92,29 +98,20 @@ int main(int argc,char* argv[])
 
         // prints the drone telemetric data, helidata struct contains drone angles, speeds and battery status
         printf("===================== Parrot Basic Example =====================\n\n");
-        fprintf(stdout, "Angles  : %.2lf %.2lf %.2lf \n", helidata.phi, helidata.psi, helidata.theta);
-        fprintf(stdout, "Speeds  : %.2lf %.2lf %.2lf \n", helidata.vx, helidata.vy, helidata.vz);
+        //fprintf(stdout, "Angles  : %.2lf %.2lf %.2lf \n", helidata.phi, helidata.psi, helidata.theta);
+        //fprintf(stdout, "Speeds  : %.2lf %.2lf %.2lf \n", helidata.vx, helidata.vy, helidata.vz);
         fprintf(stdout, "Battery : %.0lf \n", helidata.battery);
-        fprintf(stdout, "Hover   : %d \n", hover);
-        fprintf(stdout, "Joypad  : %d \n", useJoystick ? 1 : 0);
-        fprintf(stdout, "  Roll    : %d \n", joypadRoll);
-        fprintf(stdout, "  Pitch   : %d \n", joypadPitch);
-        fprintf(stdout, "  Yaw     : %d \n", joypadYaw);
-        fprintf(stdout, "  V.S.    : %d \n", joypadVerticalSpeed);
-        fprintf(stdout, "  TakeOff : %d \n", joypadTakeOff);
-        fprintf(stdout, "  Land    : %d \n", joypadLand);
-        fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
+        //fprintf(stdout, "Hover   : %d \n", hover);
+        //fprintf(stdout, "Joypad  : %d \n", useJoystick ? 1 : 0);
+        //fprintf(stdout, "  Roll    : %d \n", joypadRoll);
+        //fprintf(stdout, "  Pitch   : %d \n", joypadPitch);
+        //fprintf(stdout, "  Yaw     : %d \n", joypadYaw);
+        //fprintf(stdout, "  V.S.    : %d \n", joypadVerticalSpeed);
+        //fprintf(stdout, "  TakeOff : %d \n", joypadTakeOff);
+        //fprintf(stdout, "  Land    : %d \n", joypadLand);
+        //fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
         fprintf(stdout, "Click coordinates: (%d, %d) \n", coordinateX, coordinateY);
-        if (currentImage.data) 
-		{
-	        RTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[2];
-	        GTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[1];
-	        BTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[0];
-    	}
-    	RED = RTemp;
-    	GREEN = GTemp; 
-    	BLUE = BTemp;
-        fprintf(stdout, "R: %d, G: %d, B: %d", RED, GREEN, BLUE);
+        fprintf(stdout, "R: %d, G: %d, B: %d\n", redClick, greenClick, blueClick);
 
 		//image is captured
 		heli->renewImage(image);
@@ -140,29 +137,17 @@ int main(int argc,char* argv[])
 			case 'i': pitch = -20000.0; break;
 			case 'k': pitch = 20000.0; break;
             case 'h': hover = (hover + 1) % 2; break;
-            // ***************Punto 1***************
-            case 'f': 
-            snapshot = currentImage;
-            imshow("Frozen image", snapshot);
-            break;
-            // ***************Punto 2***************
-            case 'b': 
-            snapshot = currentImage;
-            //blackNwhite(snapshot, atoi(argv[1]) );
-            luminosity(snapshot, bwImage, atoi(argv[1]));
-            imshow("Black and White", bwImage);
-            break;
-            // ***************Invertir**************
-            case 'm': 
-            snapshot = currentImage;
-            flipImageEfficient(snapshot, flippedImage);
-            imshow("Original", snapshot);
-            imshow("Flipped", flippedImage);
-            break;
-            // ***************Punto 1***************
+            case 'f': snapshot = currentImage; imshow("Frozen image", snapshot); break;
             case 27: stop = true; break;
             default: pitch = roll = yaw = height = 0.0;
 		}
+
+		filteredImage = highlightObject(currentImage);
+		imshow("Filtered image", filteredImage);
+		luminosity(filteredImage, bwImage, atoi(argv[1]));
+        imshow("Black and White", bwImage);
+        flipImageEfficient(currentImage, flippedImage);
+        imshow("Flipped", flippedImage);
 /*
         if (joypadTakeOff) {
             heli->takeoff();
@@ -218,22 +203,39 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
     switch (event)
     {
+	    
+	  /*CV_EVENT_MOUSEMOVE - when the mouse pointer moves over the specified window
+		CV_EVENT_LBUTTONDOWN - when the left button of the mouse is pressed on the specified window
+		CV_EVENT_RBUTTONDOWN - when the right button of the mouse is pressed on the specified window
+		CV_EVENT_MBUTTONDOWN - when the middle button of the mouse is pressed on the specified window
+		CV_EVENT_LBUTTONUP - when the left button of the mouse is released on the specified window
+		CV_EVENT_RBUTTONUP - when the right button of the mouse is released on the specified window
+		CV_EVENT_MBUTTONUP - when the middle button of the mouse is released on the specified window */
+
         case CV_EVENT_LBUTTONDOWN:
-            //cout << "  Mouse X, Y: " << x << ", " << y ;
-            //cout << endl;
             coordinateX = x;
             coordinateY = y;
+            redClick = currentImage.at<Vec3b>(y, x)[2];
+	        greenClick = currentImage.at<Vec3b>(y, x)[1];
+	        blueClick = currentImage.at<Vec3b>(y, x)[0];
+
+			deltaClick = 20;
+			limInfR = redClick - (deltaClick * 255) / 100;
+			limSupR = redClick + (deltaClick * 255) / 100;
+			limInfG = greenClick - (deltaClick * 255) / 100;
+			limSupG = greenClick+ (deltaClick * 255) / 100;
+			limInfB = blueClick - (deltaClick * 255) / 100;
+			limSupB = blueClick + (deltaClick * 255) / 100;
+			break;
+
             /*  Draw a point */
-            points.push_back(Point(x, y));
+            //points.push_back(Point(x, y));
             break;
-        case CV_EVENT_MOUSEMOVE:
-            break;
-        case CV_EVENT_LBUTTONUP:
+        case CV_EVENT_RBUTTONDOWN:
             break;
     }
 }
-
-void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
+void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 {
 	int channels = sourceImage.channels(); 	// Numero de canales
 	// int average;
@@ -254,11 +256,11 @@ void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
 
 				switch(i)
 				{
-					case 0: bwImage.at<Vec3b>(y, x)[i] = pond; // Blue
+					case 0: destImage.at<Vec3b>(y, x)[i] = pond; // Blue
 					break;
-					case 1: bwImage.at<Vec3b>(y, x)[i] = pond; // Green
+					case 1: destImage.at<Vec3b>(y, x)[i] = pond; // Green
 					break;
-					case 2: bwImage.at<Vec3b>(y, x)[i] = pond; // Red
+					case 2: destImage.at<Vec3b>(y, x)[i] = pond; // Red
 					break;
 					default:
 					break;
@@ -279,6 +281,35 @@ void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
 			}
 		}
 	}
+}
+Mat highlightObject(Mat sourceImage)
+{
+	Mat highlightedImg;
+	highlightedImg = sourceImage.clone();
+	unsigned char *source, *dest;
+	for(int i = 0; i < sourceImage.rows; ++i)
+	{
+		source = (unsigned char*)(sourceImage.ptr<uchar>(i));
+		dest = (unsigned char*)(highlightedImg.ptr<uchar>(i));
+
+		for(int j = 0; j < sourceImage.cols; ++j)
+		{
+			if (source[j * 3 + 0] < limInfB || source[j * 3 + 0] > limSupB || source[j * 3 + 1] < limInfG || source[j * 3 + 1] > limSupG || source[j * 3 + 2] < limInfR || source[j * 3 + 2] > limSupR)
+			{
+				dest[j * 3 + 0] = 0;
+				dest[j * 3 + 1] = 0;
+				dest[j * 3 + 2] = 0;
+			}
+			else
+			{
+				dest[j * 3 + 0] = source[j * 3 + 0];
+				dest[j * 3 + 1] = source[j * 3 + 1];
+				dest[j * 3 + 2] = source[j * 3 + 2];
+			}
+		}
+	}
+
+	return highlightedImg;
 }
 void rawToMat(Mat &destImage, CRawImage* sourceImage)
 {	
