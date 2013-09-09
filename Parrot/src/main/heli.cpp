@@ -167,10 +167,20 @@ int main(int argc,char* argv[])
             imshow("Original", snapshot);
             imshow("HSV", hsvImage);
             break;
+	    // *************Transformar_a_HSV_usando_funcion_default**************
+            case 'y': 
+            snapshot = currentImage;
+            cvtColor(snapshot, hsvImage, CV_RGB2HSV);
+            imshow("Original", snapshot);
+            imshow("HSV", hsvImage);
+            break;
             // ***************Punto 1***************
             case 27: stop = true; break;
             default: pitch = roll = yaw = height = 0.0;
 		}
+	    //rgb2hsv(currentImage, hsvImage);
+            //imshow("Original", snapshot);
+            //imshow("HSV", hsvImage);
 /*
         if (joypadTakeOff) {
             heli->takeoff();
@@ -289,29 +299,31 @@ void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
 	}
 }
 
-void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
+void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 {
 	int channels = sourceImage.channels(); 	// Numero de canales
-	float vector_r_lineal = 0;
-	float vector_g_lineal = 0;
-	float vector_b_lineal = 0;
+	double vector_r_lineal = 0;
+	double vector_g_lineal = 0;
+	double vector_b_lineal = 0;
 	char max='n';
 	char min='n';
 	int max_value = 0;
-	int min_value = 0;
-	
+	int min_value = 255;
 	for(int y = 0; y < sourceImage.rows; ++y)
 	{
 		for(int x = 0; x < sourceImage.cols; ++x)
 		{
-			vector_r_lineal = (float)sourceImage.at<Vec3b>(y, x)[2] / (float)255;
-			vector_g_lineal = (float)sourceImage.at<Vec3b>(y, x)[1] / (float)255;
-			vector_b_lineal = (float)sourceImage.at<Vec3b>(y, x)[0] / (float)255;
+			vector_r_lineal = (double)sourceImage.at<Vec3b>(y, x)[2] / (double)255;
+			vector_g_lineal = (double)sourceImage.at<Vec3b>(y, x)[1] / (double)255;
+			vector_b_lineal = (double)sourceImage.at<Vec3b>(y, x)[0] / (double)255;
+			//if(x<10)
+			//cout<<"r "<<vector_r_lineal<<"g "<<vector_g_lineal<<"b "<<vector_b_lineal;
 			//Encuentra maximo y minimo
 			for (int i = 0; i < channels; ++i)
 			{
-				if (sourceImage.at<Vec3b>(y, x)[i] > max_value)
+				if (sourceImage.at<Vec3b>(y, x)[i] >= max_value)
 				{
+					//cout<<"ENTRA_MAX_ENTRA"<<endl;
 					max_value = sourceImage.at<Vec3b>(y, x)[i];
 					switch(i)
 					{
@@ -325,8 +337,9 @@ void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
 						  break;
 					}
 				}
-				else if(sourceImage.at<Vec3b>(y, x)[i] < min_value)
+				if(sourceImage.at<Vec3b>(y, x)[i] < min_value)
 				{
+					//cout<<"ENTRA_MIN_ENTRA"<<endl;
 					min_value = sourceImage.at<Vec3b>(y, x)[i];
 					switch(i)
 					{
@@ -341,12 +354,17 @@ void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
 					}
 				}
 			}
-			
-			float max_value_lineal = (float)max_value/(float)255;
-			float min_value_lineal = (float)min_value/(float)255;
-			float v = max_value_lineal;
-			float s = 0; //Default si v = 0
-			float h = 180; //Default si v = 0
+			/*DEBUG
+			if(x<10)
+			{
+			  cout<<" SALIDASALIDA "<<max<<max_value<<min<<min_value<<endl;
+			}*/
+							
+			double max_value_lineal = (double)max_value/(double)255;
+			double min_value_lineal = (double)min_value/(double)255;
+			double v = max_value_lineal;
+			double s = 0; //Default si v = 0
+			double h = 180; //Default si v = 0
 			if(v != 0) //Si el máximo no es cero
 			{
 				s = (max_value_lineal - min_value_lineal) / max_value_lineal;
@@ -357,11 +375,33 @@ void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
 					case 'b': h=((vector_r_lineal-vector_g_lineal)*60/(max_value_lineal-min_value_lineal))+240;
 				}
 			}
+			/*DEBUG
+			if(x<10)
+			{
+			  cout<<"VALORES";
+			  cout<<"H"<<h<<" "<<(int)h/2<<"S"<<s<<" "<<(int)s*255<<"V"<<v<<" "<<(int)v*255<<endl;
+			}*/
+				
+				//se sustituyen los valores hsv en cada canal de 8 bits
+			hsvImage.at<Vec3b>(y, x)[0]=(int)(v*255);
+			hsvImage.at<Vec3b>(y, x)[1]=(int)(s*255);
+			hsvImage.at<Vec3b>(y, x)[2]=(int)h/2;//Se divide para que se pueda representar en 8 bits
+			/*DEBUG
+			if(x<10)
+			{
+			  cout<<"V IMAGEN"<<hsvImage.at<Vec3b>(y, x)[0];
+			  cout<<"S IMAGEN"<<hsvImage.at<Vec3b>(y, x)[1];
+			  cout<<"H IMAGEN"<<hsvImage.at<Vec3b>(y, x)[2];
+			}
+			*/
 			
-			//se sustituyen los valores hsv en cada canal de 8 bits
-			hsvImage.at<Vec3b>(y, x)[0]=v*255;
-			hsvImage.at<Vec3b>(y, x)[1]=s*255;
-			hsvImage.at<Vec3b>(y, x)[2]=h/2;//Se divide para que se pueda representar en 8 bits
+			//Hacer todo default
+			max='n';
+			min='n';
+			max_value = 0;
+			min_value = 255;
+			
+			//cvSplit(hsvImage, h/2, s, v, 0);
 		}
 	}
 	
