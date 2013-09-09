@@ -154,7 +154,7 @@ int main(int argc,char* argv[])
         imshow("Flipped", flippedImage);
         rgb2hsv(currentImage, hsvImage);
         imshow("HSV", hsvImage);
-        generateRedHistogram(currentImage,redHistogram);
+        generateRedHistogram(currentImage, redHistogram);
         imshow("Red Histogram",redHistogram);
 /*
         if (joypadTakeOff) {
@@ -424,11 +424,6 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 
 	}
 
-	for(int i = 0; i < 256; i++){
-
-		cout << arr[i] << endl;
-		}
-
 	//Pinto toda la imagen de blanco
 	for(int y = 0; y < redHistogram.rows; ++y)
 		for(int x = 0; x < redHistogram.cols; ++x)
@@ -443,7 +438,6 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 		for(int i = 0; i < 256; i++){
 
 			arr[i] = 10*((arr[i]*255)/76800);
-			//cout << arr[i] << endl;
 		}
 
 
