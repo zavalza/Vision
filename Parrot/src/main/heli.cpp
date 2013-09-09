@@ -142,6 +142,7 @@ case 'l': roll = 20000.0; break;
 case 'i': pitch = -20000.0; break;
 case 'k': pitch = 20000.0; break;
             case 'h': hover = (hover + 1) % 2; break;
+<<<<<<< HEAD
             case 'f': freeze ^= 1; break;
             case 27: stop = true; break;
             default: pitch = roll = yaw = height = 0.0;
@@ -159,6 +160,25 @@ imshow("HSV", hsvImage);
 generateRedHistogram(currentImage, redHistogram);
 imshow("Red Histogram",redHistogram);
      }
+=======
+            case 'f': freeze ^= 1;  break;
+            case 27: stop = true; break;
+            default: pitch = roll = yaw = height = 0.0;
+		}
+
+		if(!freeze){
+			filteredImage = highlightObject(currentImage);
+			imshow("Filtered image", filteredImage);
+			luminosity(filteredImage, bwImage, atoi(argv[1]));
+	        imshow("Black and White", bwImage);
+	        flipImageEfficient(currentImage, flippedImage);
+	        imshow("Flipped", flippedImage);
+	        rgb2hsv(currentImage, hsvImage);
+	        imshow("HSV", hsvImage);
+	        generateRedHistogram(currentImage, redHistogram);
+	        imshow("Red Histogram",redHistogram);
+    	}
+>>>>>>> e73131f4e83a2d47b122cdfb625ae50a2fb72173
 /*
 if (joypadTakeOff) {
 heli->takeoff();
@@ -334,6 +354,7 @@ break;
 }
 if(sourceImage.at<Vec3b>(y, x)[i] < min_value)
 {
+<<<<<<< HEAD
 //cout<<"ENTRA_MIN_ENTRA"<<endl;
 min_value = sourceImage.at<Vec3b>(y, x)[i];
 switch(i)
@@ -389,6 +410,10 @@ cout<<"S IMAGEN"<<hsvImage.at<Vec3b>(y, x)[1];
 cout<<"H IMAGEN"<<hsvImage.at<Vec3b>(y, x)[2];
 }
 */
+=======
+	//int channels = sourceImage.channels(); 	// Numero de canales 
+	int colorSat;
+>>>>>>> e73131f4e83a2d47b122cdfb625ae50a2fb72173
 
 //Hacer todo default
 max='n';
@@ -443,6 +468,7 @@ for(int i = 0; i < 256; i++){
 arr[i] = 10*((arr[i]*255)/76800);
 }
 
+<<<<<<< HEAD
 
 for(int x = 1; x < redHistogram.cols; ++x)
 for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
@@ -450,6 +476,9 @@ for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
 redHistogram.at<Vec3b>(y, x)[0] = 0;
 redHistogram.at<Vec3b>(y, x)[1] = 0;
 
+=======
+		}
+>>>>>>> e73131f4e83a2d47b122cdfb625ae50a2fb72173
 }
 }
 
