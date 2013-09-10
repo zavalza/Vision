@@ -45,6 +45,10 @@ void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
+void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram);
+void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram);
+
+
 
 int main(int argc,char* argv[])
 {
@@ -66,6 +70,8 @@ int main(int argc,char* argv[])
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 	Mat redHistogram = Mat(256,256,CV_8UC3);
+	Mat blueHistogram = Mat(256,256,CV_8UC3);
+	Mat greenHistogram = Mat(256,256,CV_8UC3);
 
 	namedWindow("ParrotCam");
     setMouseCallback("ParrotCam", mouseCoordinates);
@@ -157,7 +163,11 @@ int main(int argc,char* argv[])
 	        rgb2hsv(currentImage, hsvImage);
 	        imshow("HSV", hsvImage);
 	        generateRedHistogram(currentImage, redHistogram);
+	        generateGreenHistogram(currentImage,greenHistogram);
+	        generateBlueHistogram(currentImage,blueHistogram);
 	        imshow("Red Histogram",redHistogram);
+	        imshow("Green Histogram",greenHistogram);
+	        imshow("Blue Histogram",blueHistogram);
     	}
 /*
         if (joypadTakeOff) {
@@ -423,6 +433,13 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 				colorSat = sourceImage.at<Vec3b>(y,x)[2];
 				//busco la casilla dond esta casa valor
 				arr[colorSat] = arr[colorSat] + 1;
+				arr[colorSat - 1] = arr[colorSat - 1] + 1;
+				arr[colorSat - 2] = arr[colorSat - 2] + 1;
+				arr[colorSat - 3] = arr[colorSat - 3] + 1;
+				arr[colorSat - 4] = arr[colorSat - 4] + 1;
+				arr[colorSat - 5] = arr[colorSat - 5] + 1;
+				arr[colorSat - 6] = arr[colorSat - 6] + 1;
+				arr[colorSat - 7] = arr[colorSat - 7] + 1;
 		}
 
 	}
@@ -436,13 +453,18 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 			redHistogram.at<Vec3b>(y, x)[2] = 255;
 		}
 
+		int maxDelArreglo = 0;
 
-		//Normalizo el arr[]
-		for(int i = 0; i < 256; i++){
+	for(int i = 0; i<256; i++)
+	{
+		if(arr[i]>maxDelArreglo)
+			maxDelArreglo = arr[i];
+	}
 
-			arr[i] = 10*((arr[i]*255)/76800);
-		}
+	for(int i = 0; i < 256; i++){
 
+			arr[i] = ((arr[i]*255)/maxDelArreglo);
+	}
 
 	for(int x = 1; x < redHistogram.cols; ++x)
 		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
@@ -451,6 +473,9 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 			redHistogram.at<Vec3b>(y, x)[1] = 0;
 
 		}
+
+
+
 }
 
 Mat highlightObject(Mat sourceImage)
@@ -493,4 +518,140 @@ void rawToMat(Mat &destImage, CRawImage* sourceImage)
 		pointerImage[3*i+2] = sourceImage->data[3*i];
 	}
 }
+void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram)
+{
+	int channels = sourceImage.channels(); 	// Numero de canales 
+	int colorSat;
 
+	//Creo un arreglo de 256 localidades y despues se llena con 0's
+	int arr[256];
+
+	for (int i = 0; i < 256; i++)
+	{
+		arr[i] = 0;
+	}
+
+	for(int y = 0; y < sourceImage.rows; ++y)
+	{
+		for(int x = 0; x < sourceImage.cols; ++x)
+		{
+				//Saco la intensidad del rojo y la guardo en colorSat
+				colorSat = sourceImage.at<Vec3b>(y,x)[1];
+				//busco la casilla dond esta casa valor
+				arr[colorSat] = arr[colorSat] + 1;
+				arr[colorSat - 1] = arr[colorSat - 1] + 1;
+				arr[colorSat - 2] = arr[colorSat - 2] + 1;
+				arr[colorSat - 3] = arr[colorSat - 3] + 1;
+				arr[colorSat - 4] = arr[colorSat - 4] + 1;
+				arr[colorSat - 5] = arr[colorSat - 5] + 1;
+				arr[colorSat - 6] = arr[colorSat - 6] + 1;
+				arr[colorSat - 7] = arr[colorSat - 7] + 1;
+		}
+
+	}
+
+//Pinto toda la imagen de blanco
+	for(int y = 0; y < greenHistogram.rows; ++y)
+		for(int x = 0; x < greenHistogram.cols; ++x)
+		{
+			greenHistogram.at<Vec3b>(y, x)[0] = 255;
+			greenHistogram.at<Vec3b>(y, x)[1] = 255;
+			greenHistogram.at<Vec3b>(y, x)[2] = 255;
+		}
+
+
+		int maxDelArreglo = 0;
+
+	for(int i = 0; i<256; i++)
+	{
+		if(arr[i]>maxDelArreglo)
+			maxDelArreglo = arr[i];
+	}
+
+	for(int i = 0; i < 256; i++){
+
+			arr[i] = ((arr[i]*255)/maxDelArreglo);
+	}
+
+
+
+	for(int x = 1; x < greenHistogram.cols; ++x)
+		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
+		{
+			greenHistogram.at<Vec3b>(y, x)[0] = 0;
+			greenHistogram.at<Vec3b>(y, x)[2] = 0;
+
+		}
+
+		
+
+}
+
+void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram)
+{
+	int channels = sourceImage.channels(); 	// Numero de canales 
+	int colorSat;
+
+	//Creo un arreglo de 256 localidades y despues se llena con 0's
+	int arr[256];
+
+	for (int i = 0; i < 256; i++)
+	{
+		arr[i] = 0;
+	}
+
+	for(int y = 0; y < sourceImage.rows; ++y)
+	{
+		for(int x = 0; x < sourceImage.cols; ++x)
+		{
+				//Saco la intensidad del rojo y la guardo en colorSat
+				colorSat = sourceImage.at<Vec3b>(y,x)[0];
+				//busco la casilla dond esta casa valor
+				arr[colorSat] = arr[colorSat] + 1;
+				arr[colorSat - 1] = arr[colorSat - 1] + 1;
+				arr[colorSat - 2] = arr[colorSat - 2] + 1;
+				arr[colorSat - 3] = arr[colorSat - 3] + 1;
+				arr[colorSat - 4] = arr[colorSat - 4] + 1;
+				arr[colorSat - 5] = arr[colorSat - 5] + 1;
+				arr[colorSat - 6] = arr[colorSat - 6] + 1;
+				arr[colorSat - 7] = arr[colorSat - 7] + 1;
+		}
+
+	}
+
+//Pinto toda la imagen de blanco
+	for(int y = 0; y < blueHistogram.rows; ++y)
+		for(int x = 0; x < blueHistogram.cols; ++x)
+		{
+			blueHistogram.at<Vec3b>(y, x)[0] = 255;
+			blueHistogram.at<Vec3b>(y, x)[1] = 255;
+			blueHistogram.at<Vec3b>(y, x)[2] = 255;
+		}
+
+
+		int maxDelArreglo = 0;
+
+	for(int i = 0; i<256; i++)
+	{
+		if(arr[i]>maxDelArreglo)
+			maxDelArreglo = arr[i];
+	}
+
+	for(int i = 0; i < 256; i++){
+
+			arr[i] = ((arr[i]*255)/maxDelArreglo);
+	}
+
+
+
+	for(int x = 1; x < blueHistogram.cols; ++x)
+		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
+		{
+			blueHistogram.at<Vec3b>(y, x)[1] = 0;
+			blueHistogram.at<Vec3b>(y, x)[2] = 0;
+
+		}
+
+		
+
+}
