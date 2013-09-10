@@ -22,8 +22,6 @@ int deltaClick;
 int valBclick,valGclick,valRclick,valBin;
 int limInfB = 0, limSupB = 0, limInfG = 0, limSupG = 0, limInfR = 0, limSupR = 0;
 Mat currentImage = Mat(240, 320, CV_8UC3);
-int analysis = 0;
-int RTemp = 0, GTemp = 0, BTemp = 0;
 int redClick = 0, greenClick = 0, blueClick = 0;
 vector<Point> points;
 int coordinateX, coordinateY;
@@ -44,12 +42,16 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
+void rgb2yiq(Mat &sourceImage, Mat &destImage);
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
+
 
 int main(int argc,char* argv[])
 {
 	//establishing connection with the quadcopter
 	heli = new CHeli();
+	//VideoCapture camera;
+	//camera.open(0);
 	Mat imgFiltrada = Mat(240, 320, CV_8UC3);
 	//this class holds the image from the drone	
 	image = new CRawImage(320,240);
@@ -64,6 +66,7 @@ int main(int argc,char* argv[])
 	Mat bwImage = Mat(240, 320, CV_8UC3);
 	Mat filteredImage = Mat(240, 320, CV_8UC3);
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
+	Mat yiqImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 	Mat redHistogram = Mat(256,256,CV_8UC3);
 
@@ -122,6 +125,7 @@ int main(int argc,char* argv[])
 		heli->renewImage(image);
 
 		// Copy to OpenCV Mat
+		//camera >> currentImage;
 		rawToMat(currentImage, image);
 		imshow("ParrotCam", currentImage);
 
@@ -151,13 +155,15 @@ int main(int argc,char* argv[])
 			filteredImage = highlightObject(currentImage);
 			imshow("Filtered image", filteredImage);
 			luminosity(filteredImage, bwImage, atoi(argv[1]));
-	        imshow("Black and White", bwImage);
-	        flipImageEfficient(currentImage, flippedImage);
-	        imshow("Flipped", flippedImage);
-	        rgb2hsv(currentImage, hsvImage);
-	        imshow("HSV", hsvImage);
-	        generateRedHistogram(currentImage, redHistogram);
-	        imshow("Red Histogram",redHistogram);
+			imshow("Black and White", bwImage);
+			flipImageEfficient(currentImage, flippedImage);
+			imshow("Flipped", flippedImage);
+			rgb2hsv(currentImage, hsvImage);
+			imshow("HSV", hsvImage);
+			rgb2yiq(currentImage, yiqImage);
+			imshow("YIQ", yiqImage);
+			//generateRedHistogram(currentImage, redHistogram);
+			//imshow("Red Histogram",redHistogram);
     	}
 /*
         if (joypadTakeOff) {
@@ -214,7 +220,6 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
     switch (event)
     {
-	    
 	  /*CV_EVENT_MOUSEMOVE - when the mouse pointer moves over the specified window
 		CV_EVENT_LBUTTONDOWN - when the left button of the mouse is pressed on the specified window
 		CV_EVENT_RBUTTONDOWN - when the right button of the mouse is pressed on the specified window
@@ -230,11 +235,11 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 	        greenClick = currentImage.at<Vec3b>(y, x)[1];
 	        blueClick = currentImage.at<Vec3b>(y, x)[0];
 
-			deltaClick = 20;
+			deltaClick = 10;
 			limInfR = redClick - (deltaClick * 255) / 100;
 			limSupR = redClick + (deltaClick * 255) / 100;
 			limInfG = greenClick - (deltaClick * 255) / 100;
-			limSupG = greenClick+ (deltaClick * 255) / 100;
+			limSupG = greenClick + (deltaClick * 255) / 100;
 			limInfB = blueClick - (deltaClick * 255) / 100;
 			limSupB = blueClick + (deltaClick * 255) / 100;
 			break;
@@ -352,7 +357,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			/*DEBUG
 			if(x<10)
 			{
-			  cout<<" SALIDASALIDA "<<max<<max_value<<min<<min_value<<endl;
+			  cout<<" SALIDA SALIDA "<<max<<max_value<<min<<min_value<<endl;
 			}*/
 							
 			double max_value_lineal = (double)max_value/(double)255;
@@ -371,7 +376,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 				}
 			}
 			/*DEBUG
-			if(x<10)
+			if(	x<10)
 			{
 			  cout<<"VALORES";
 			  cout<<"H"<<h<<" "<<(int)h/2<<"S"<<s<<" "<<(int)s*255<<"V"<<v<<" "<<(int)v*255<<endl;
@@ -398,10 +403,21 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			
 			//cvSplit(hsvImage, h/2, s, v, 0);
 		}
-	}
-	
+	}	
 }
 
+void rgb2yiq(Mat &sourceImage, Mat &destImage)
+{
+	for (int y = 0; y < sourceImage.rows; ++y) 
+	{
+		for (int x = 0; x < sourceImage.cols; ++x){
+			destImage.at<Vec3b>(y, x)[2] = 0.299 * sourceImage.at<Vec3b>(y, x)[2] + 0.587 * sourceImage.at<Vec3b>(y, x)[2] + 0.144 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[1] = 0.596 * sourceImage.at<Vec3b>(y, x)[2] - 0.275 * sourceImage.at<Vec3b>(y, x)[2] - 0.321 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[0] = 0.212 * sourceImage.at<Vec3b>(y, x)[2] - 0.528 * sourceImage.at<Vec3b>(y, x)[2] + 0.311 * sourceImage.at<Vec3b>(y, x)[2]; 
+		}
+				
+	}
+}
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 {
 	//int channels = sourceImage.channels(); 	// Numero de canales 
@@ -440,12 +456,12 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 		//Normalizo el arr[]
 		for(int i = 0; i < 256; i++){
 
-			arr[i] = 10*((arr[i]*255)/76800);
+			arr[i] = 10*((arr[i]*255) / 50000);
 		}
 
 
 	for(int x = 1; x < redHistogram.cols; ++x)
-		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
+		for(int y = arr[x]; y > 0;--y)//for(int y = 0; y < arr[x]; ++y)
 		{
 			redHistogram.at<Vec3b>(y, x)[0] = 0;
 			redHistogram.at<Vec3b>(y, x)[1] = 0;
