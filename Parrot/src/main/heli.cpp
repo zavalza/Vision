@@ -43,7 +43,6 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
-void rgb2yiq(Mat &sourceImage, Mat &destImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
 void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram);
@@ -68,12 +67,11 @@ int main(int argc,char* argv[])
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
 	Mat filteredImage = Mat(240, 320, CV_8UC3);
-	Mat yiqImage = Mat(240, 320, CV_8UC3);
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
-	Mat redHistogram = Mat(256,256,CV_8UC3);
-	Mat blueHistogram = Mat(256,256,CV_8UC3);
-	Mat greenHistogram = Mat(256,256,CV_8UC3);
+	Mat redHistogram = Mat(306,256,CV_8UC3);
+	Mat blueHistogram = Mat(306,256,CV_8UC3);
+	Mat greenHistogram = Mat(306,256,CV_8UC3);
 
 	namedWindow("ParrotCam");
     setMouseCallback("ParrotCam", mouseCoordinates);
@@ -170,8 +168,7 @@ int main(int argc,char* argv[])
 	        imshow("Red Histogram",redHistogram);
 	        imshow("Green Histogram",greenHistogram);
 	        imshow("Blue Histogram",blueHistogram);
-	        rgb2yiq(currentImage, yiqImage);
-	        imshow("YIQ", yiqImage)
+	        
     	}
 /*
         if (joypadTakeOff) {
@@ -196,7 +193,7 @@ int main(int argc,char* argv[])
 */
         usleep(15000);
 	}
-
+	
 	heli->land();
     SDL_JoystickClose(m_joystick);
     delete heli;
@@ -210,7 +207,7 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage)
 		destinationImage = Mat(sourceImage.rows, sourceImage.cols, sourceImage.type());
 
 	int channels = sourceImage.channels();
-
+	
 	for (int y = 0; y < sourceImage.rows; ++y) 
 	{
 		uchar* sourceRowPointer = (uchar*) sourceImage.ptr<uchar>(y);
@@ -228,7 +225,7 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
     switch (event)
     {
-
+	    
 	  /*CV_EVENT_MOUSEMOVE - when the mouse pointer moves over the specified window
 		CV_EVENT_LBUTTONDOWN - when the left button of the mouse is pressed on the specified window
 		CV_EVENT_RBUTTONDOWN - when the right button of the mouse is pressed on the specified window
@@ -273,7 +270,7 @@ void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 			{
 				//average = (sourceImage.at<Vec3b>(y, x)[0] + sourceImage.at<Vec3b>(y, x)[1] + sourceImage.at<Vec3b>(y, x)[2]) / 3;
 				pond = 0.1 * sourceImage.at<Vec3b>(y, x)[0] + 0.3 * sourceImage.at<Vec3b>(y, x)[1] + 0.6 * sourceImage.at<Vec3b>(y, x)[2];
-
+				
 				if(pond > umbral)
 					pond = 255;
 				else
@@ -302,22 +299,9 @@ void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 					default:
 					break;
 				}*/
-
+				 
 			}
 		}
-	}
-}
-
-void rgb2yiq(Mat &sourceImage, Mat &destImage)
-{
-	for (int y = 0; y < sourceImage.rows; ++y) 
-	{
-		for (int x = 0; x < sourceImage.cols; ++x){
-			destImage.at<Vec3b>(y, x)[2] = 0.299 * sourceImage.at<Vec3b>(y, x)[2] + 0.587 * sourceImage.at<Vec3b>(y, x)[2] + 0.144 * sourceImage.at<Vec3b>(y, x)[2];
-			destImage.at<Vec3b>(y, x)[1] = 0.596 * sourceImage.at<Vec3b>(y, x)[2] - 0.275 * sourceImage.at<Vec3b>(y, x)[2] - 0.321 * sourceImage.at<Vec3b>(y, x)[2];
-			destImage.at<Vec3b>(y, x)[0] = 0.212 * sourceImage.at<Vec3b>(y, x)[2] - 0.528 * sourceImage.at<Vec3b>(y, x)[2] + 0.311 * sourceImage.at<Vec3b>(y, x)[2]; 
-		}
-
 	}
 }
 
@@ -381,7 +365,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			{
 			  cout<<" SALIDASALIDA "<<max<<max_value<<min<<min_value<<endl;
 			}*/
-
+							
 			double max_value_lineal = (double)max_value/(double)255;
 			double min_value_lineal = (double)min_value/(double)255;
 			double v = max_value_lineal;
@@ -403,7 +387,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			  cout<<"VALORES";
 			  cout<<"H"<<h<<" "<<(int)h/2<<"S"<<s<<" "<<(int)s*255<<"V"<<v<<" "<<(int)v*255<<endl;
 			}*/
-
+				
 				//se sustituyen los valores hsv en cada canal de 8 bits
 			hsvImage.at<Vec3b>(y, x)[0]=(int)(v*255);
 			hsvImage.at<Vec3b>(y, x)[1]=(int)(s*255);
@@ -416,17 +400,17 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			  cout<<"H IMAGEN"<<hsvImage.at<Vec3b>(y, x)[2];
 			}
 			*/
-
+			
 			//Hacer todo default
 			max='n';
 			min='n';
 			max_value = 0;
 			min_value = 255;
-
+			
 			//cvSplit(hsvImage, h/2, s, v, 0);
 		}
 	}
-
+	
 }
 
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
@@ -462,8 +446,8 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 	}
 
 	//Pinto toda la imagen de blanco
-	for(int y = 0; y < redHistogram.rows; ++y)
-		for(int x = 0; x < redHistogram.cols; ++x)
+	for(int y = 0; y < 306; ++y)
+		for(int x = 0; x < 256; ++x)
 		{
 			redHistogram.at<Vec3b>(y, x)[0] = 255;
 			redHistogram.at<Vec3b>(y, x)[1] = 255;
@@ -483,15 +467,57 @@ void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
 			arr[i] = ((arr[i]*255)/maxDelArreglo);
 	}
 
-	for(int x = 1; x < redHistogram.cols; ++x)
+	for(int x = 1; x < 256; ++x)
 		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
 		{
+			redHistogram.at<Vec3b>(y+49, x)[0] = 0;
+			redHistogram.at<Vec3b>(y+49, x)[1] = 0;
+
+		}
+
+	
+		//Resaltamos el rango de colores donde se encuentre nuestro color
+		//Es decir, donde se detecte el clic se filtrara la gama de color en la que se encuentra
+	for(int x = redClick;x>(redClick-8);--x)		
+		for(int y = arr[redClick]; y>0;--y)
+		{
+			redHistogram.at<Vec3b>(y+49, x)[0] = 0;
+			redHistogram.at<Vec3b>(y+49, x)[1] = 0;
+			redHistogram.at<Vec3b>(y+49, x)[2] = 0;
+		}
+
+	for(int x = 1; x<256;x++)
+		for(int y = 0; y<50;y++)
+		{
+			
 			redHistogram.at<Vec3b>(y, x)[0] = 0;
 			redHistogram.at<Vec3b>(y, x)[1] = 0;
+			redHistogram.at<Vec3b>(y, x)[2] = x;
+
 
 		}
 
 
+		Mat redHistogramAux = Mat(306,256,CV_8UC3);
+
+	for(int x = 0;x<256;x++)
+		for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			redHistogramAux.at<Vec3b>(i, x)[0] = redHistogram.at<Vec3b>(y, x)[0];
+			redHistogramAux.at<Vec3b>(i, x)[1] = redHistogram.at<Vec3b>(y, x)[1];
+			redHistogramAux.at<Vec3b>(i, x)[2] = redHistogram.at<Vec3b>(y, x)[2];
+
+
+		}
+
+		for(int x = 0;x<256;x++)
+			for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			redHistogram.at<Vec3b>(y, x)[0] = redHistogramAux.at<Vec3b>(y, x)[0];
+			redHistogram.at<Vec3b>(y, x)[1] = redHistogramAux.at<Vec3b>(y, x)[1];
+			redHistogram.at<Vec3b>(y, x)[2] = redHistogramAux.at<Vec3b>(y, x)[2];
+
+		}
 
 }
 
@@ -527,7 +553,7 @@ Mat highlightObject(Mat sourceImage)
 void rawToMat(Mat &destImage, CRawImage* sourceImage)
 {	
 	uchar *pointerImage = destImage.ptr(0);
-
+	
 	for (int i = 0; i < 240*320; i++)
 	{
 		pointerImage[3*i] = sourceImage->data[3*i+2];
@@ -535,78 +561,9 @@ void rawToMat(Mat &destImage, CRawImage* sourceImage)
 		pointerImage[3*i+2] = sourceImage->data[3*i];
 	}
 }
-void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram)
-{
-	int channels = sourceImage.channels(); 	// Numero de canales 
-	int colorSat;
-
-	//Creo un arreglo de 256 localidades y despues se llena con 0's
-	int arr[256];
-
-	for (int i = 0; i < 256; i++)
-	{
-		arr[i] = 0;
-	}
-
-	for(int y = 0; y < sourceImage.rows; ++y)
-	{
-		for(int x = 0; x < sourceImage.cols; ++x)
-		{
-				//Saco la intensidad del rojo y la guardo en colorSat
-				colorSat = sourceImage.at<Vec3b>(y,x)[1];
-				//busco la casilla dond esta casa valor
-				arr[colorSat] = arr[colorSat] + 1;
-				arr[colorSat - 1] = arr[colorSat - 1] + 1;
-				arr[colorSat - 2] = arr[colorSat - 2] + 1;
-				arr[colorSat - 3] = arr[colorSat - 3] + 1;
-				arr[colorSat - 4] = arr[colorSat - 4] + 1;
-				arr[colorSat - 5] = arr[colorSat - 5] + 1;
-				arr[colorSat - 6] = arr[colorSat - 6] + 1;
-				arr[colorSat - 7] = arr[colorSat - 7] + 1;
-		}
-
-	}
-
-//Pinto toda la imagen de blanco
-	for(int y = 0; y < greenHistogram.rows; ++y)
-		for(int x = 0; x < greenHistogram.cols; ++x)
-		{
-			greenHistogram.at<Vec3b>(y, x)[0] = 255;
-			greenHistogram.at<Vec3b>(y, x)[1] = 255;
-			greenHistogram.at<Vec3b>(y, x)[2] = 255;
-		}
-
-
-		int maxDelArreglo = 0;
-
-	for(int i = 0; i<256; i++)
-	{
-		if(arr[i]>maxDelArreglo)
-			maxDelArreglo = arr[i];
-	}
-
-	for(int i = 0; i < 256; i++){
-
-			arr[i] = ((arr[i]*255)/maxDelArreglo);
-	}
-
-
-
-	for(int x = 1; x < greenHistogram.cols; ++x)
-		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
-		{
-			greenHistogram.at<Vec3b>(y, x)[0] = 0;
-			greenHistogram.at<Vec3b>(y, x)[2] = 0;
-
-		}
-
-
-
-}
-
 void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram)
 {
-	int channels = sourceImage.channels(); 	// Numero de canales 
+	//int channels = sourceImage.channels(); 	// Numero de canales 
 	int colorSat;
 
 	//Creo un arreglo de 256 localidades y despues se llena con 0's
@@ -636,15 +593,14 @@ void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram)
 
 	}
 
-//Pinto toda la imagen de blanco
-	for(int y = 0; y < blueHistogram.rows; ++y)
-		for(int x = 0; x < blueHistogram.cols; ++x)
+	//Pinto toda la imagen de blanco
+	for(int y = 0; y < 306; ++y)
+		for(int x = 0; x < 256; ++x)
 		{
 			blueHistogram.at<Vec3b>(y, x)[0] = 255;
 			blueHistogram.at<Vec3b>(y, x)[1] = 255;
 			blueHistogram.at<Vec3b>(y, x)[2] = 255;
 		}
-
 
 		int maxDelArreglo = 0;
 
@@ -659,15 +615,159 @@ void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram)
 			arr[i] = ((arr[i]*255)/maxDelArreglo);
 	}
 
-
-
-	for(int x = 1; x < blueHistogram.cols; ++x)
+	for(int x = 1; x < 256; ++x)
 		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
 		{
+			blueHistogram.at<Vec3b>(y+49, x)[2] = 0;
+			blueHistogram.at<Vec3b>(y+49, x)[1] = 0;
+
+		}
+	for(int x = blueClick;x>(blueClick-8);--x)		
+		for(int y = arr[blueClick]; y>0;--y)
+		{
+			blueHistogram.at<Vec3b>(y+49, x)[0] = 0;
+			blueHistogram.at<Vec3b>(y+49, x)[1] = 0;
+			blueHistogram.at<Vec3b>(y+49, x)[2] = 0;
+		}
+
+	for(int x = 1; x<256;x++)
+		for(int y = 0; y<50;y++)
+		{
+			
+			blueHistogram.at<Vec3b>(y, x)[0] = x;
 			blueHistogram.at<Vec3b>(y, x)[1] = 0;
 			blueHistogram.at<Vec3b>(y, x)[2] = 0;
 
+
 		}
+
+
+		Mat blueHistogramAux = Mat(306,256,CV_8UC3);
+
+	for(int x = 0;x<256;x++)
+		for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			blueHistogramAux.at<Vec3b>(i, x)[0] = blueHistogram.at<Vec3b>(y, x)[0];
+			blueHistogramAux.at<Vec3b>(i, x)[1] = blueHistogram.at<Vec3b>(y, x)[1];
+			blueHistogramAux.at<Vec3b>(i, x)[2] = blueHistogram.at<Vec3b>(y, x)[2];
+
+
+		}
+
+		for(int x = 0;x<256;x++)
+			for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			blueHistogram.at<Vec3b>(y, x)[0] = blueHistogramAux.at<Vec3b>(y, x)[0];
+			blueHistogram.at<Vec3b>(y, x)[1] = blueHistogramAux.at<Vec3b>(y, x)[1];
+			blueHistogram.at<Vec3b>(y, x)[2] = blueHistogramAux.at<Vec3b>(y, x)[2];
+
+		}
+
+
+
+
+}
+void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram)
+{
+	//int channels = sourceImage.channels(); 	// Numero de canales 
+	int colorSat;
+
+	//Creo un arreglo de 256 localidades y despues se llena con 0's
+	int arr[256];
+
+	for (int i = 0; i < 256; i++)
+	{
+		arr[i] = 0;
+	}
+
+	for(int y = 0; y < sourceImage.rows; ++y)
+	{
+		for(int x = 0; x < sourceImage.cols; ++x)
+		{
+				//Saco la intensidad del rojo y la guardo en colorSat
+				colorSat = sourceImage.at<Vec3b>(y,x)[1];
+				//busco la casilla dond esta casa valor
+				arr[colorSat] = arr[colorSat] + 1;
+				arr[colorSat - 1] = arr[colorSat - 1] + 1;
+				arr[colorSat - 2] = arr[colorSat - 2] + 1;
+				arr[colorSat - 3] = arr[colorSat - 3] + 1;
+				arr[colorSat - 4] = arr[colorSat - 4] + 1;
+				arr[colorSat - 5] = arr[colorSat - 5] + 1;
+				arr[colorSat - 6] = arr[colorSat - 6] + 1;
+				arr[colorSat - 7] = arr[colorSat - 7] + 1;
+		}
+
+	}
+
+	//Pinto toda la imagen de blanco
+	for(int y = 0; y < 306; ++y)
+		for(int x = 0; x < 256; ++x)
+		{
+			greenHistogram.at<Vec3b>(y, x)[0] = 255;
+			greenHistogram.at<Vec3b>(y, x)[1] = 255;
+			greenHistogram.at<Vec3b>(y, x)[2] = 255;
+		}
+
+		int maxDelArreglo = 0;
+
+	for(int i = 0; i<256; i++)
+	{
+		if(arr[i]>maxDelArreglo)
+			maxDelArreglo = arr[i];
+	}
+
+	for(int i = 0; i < 256; i++){
+
+			arr[i] = ((arr[i]*255)/maxDelArreglo);
+	}
+
+	for(int x = 1; x < 256; ++x)
+		for(int y = arr[x]; y>0;--y)//for(int y = 0; y < arr[x]; ++y)
+		{
+			greenHistogram.at<Vec3b>(y+49, x)[0] = 0;
+			greenHistogram.at<Vec3b>(y+49, x)[2] = 0;
+
+		}
+		for(int x = greenClick;x>(greenClick-8);--x)		
+		for(int y = arr[greenClick]; y>0;--y)
+		{
+			greenHistogram.at<Vec3b>(y+49, x)[0] = 0;
+			greenHistogram.at<Vec3b>(y+49, x)[1] = 0;
+			greenHistogram.at<Vec3b>(y+49, x)[2] = 0;
+		}
+	for(int x = 1; x<256;x++)
+		for(int y = 0; y<50;y++)
+		{
+			
+			greenHistogram.at<Vec3b>(y, x)[0] = 0;
+			greenHistogram.at<Vec3b>(y, x)[1] = x;
+			greenHistogram.at<Vec3b>(y, x)[2] = 0;
+
+
+		}
+
+
+		Mat greenHistogramAux = Mat(306,256,CV_8UC3);
+
+	for(int x = 0;x<256;x++)
+		for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			greenHistogramAux.at<Vec3b>(i, x)[0] = greenHistogram.at<Vec3b>(y, x)[0];
+			greenHistogramAux.at<Vec3b>(i, x)[1] = greenHistogram.at<Vec3b>(y, x)[1];
+			greenHistogramAux.at<Vec3b>(i, x)[2] = greenHistogram.at<Vec3b>(y, x)[2];
+
+
+		}
+
+		for(int x = 0;x<256;x++)
+			for(int y = 0, i = 305; y<306; y++,i--)
+		{
+			greenHistogram.at<Vec3b>(y, x)[0] = greenHistogramAux.at<Vec3b>(y, x)[0];
+			greenHistogram.at<Vec3b>(y, x)[1] = greenHistogramAux.at<Vec3b>(y, x)[1];
+			greenHistogram.at<Vec3b>(y, x)[2] = greenHistogramAux.at<Vec3b>(y, x)[2];
+
+		}
+
 
 
 
