@@ -43,6 +43,7 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
+void rgb2yiq(Mat &sourceImage, Mat &destImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
 void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram);
@@ -67,6 +68,7 @@ int main(int argc,char* argv[])
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
 	Mat filteredImage = Mat(240, 320, CV_8UC3);
+	Mat yiqImage = Mat(240, 320, CV_8UC3);
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 	Mat redHistogram = Mat(256,256,CV_8UC3);
@@ -168,6 +170,8 @@ int main(int argc,char* argv[])
 	        imshow("Red Histogram",redHistogram);
 	        imshow("Green Histogram",greenHistogram);
 	        imshow("Blue Histogram",blueHistogram);
+	        rgb2yiq(currentImage, yiqImage);
+	        imshow("YIQ", yiqImage)
     	}
 /*
         if (joypadTakeOff) {
@@ -192,7 +196,7 @@ int main(int argc,char* argv[])
 */
         usleep(15000);
 	}
-	
+
 	heli->land();
     SDL_JoystickClose(m_joystick);
     delete heli;
@@ -206,7 +210,7 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage)
 		destinationImage = Mat(sourceImage.rows, sourceImage.cols, sourceImage.type());
 
 	int channels = sourceImage.channels();
-	
+
 	for (int y = 0; y < sourceImage.rows; ++y) 
 	{
 		uchar* sourceRowPointer = (uchar*) sourceImage.ptr<uchar>(y);
@@ -224,7 +228,7 @@ void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
     switch (event)
     {
-	    
+
 	  /*CV_EVENT_MOUSEMOVE - when the mouse pointer moves over the specified window
 		CV_EVENT_LBUTTONDOWN - when the left button of the mouse is pressed on the specified window
 		CV_EVENT_RBUTTONDOWN - when the right button of the mouse is pressed on the specified window
@@ -269,7 +273,7 @@ void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 			{
 				//average = (sourceImage.at<Vec3b>(y, x)[0] + sourceImage.at<Vec3b>(y, x)[1] + sourceImage.at<Vec3b>(y, x)[2]) / 3;
 				pond = 0.1 * sourceImage.at<Vec3b>(y, x)[0] + 0.3 * sourceImage.at<Vec3b>(y, x)[1] + 0.6 * sourceImage.at<Vec3b>(y, x)[2];
-				
+
 				if(pond > umbral)
 					pond = 255;
 				else
@@ -298,9 +302,22 @@ void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 					default:
 					break;
 				}*/
-				 
+
 			}
 		}
+	}
+}
+
+void rgb2yiq(Mat &sourceImage, Mat &destImage)
+{
+	for (int y = 0; y < sourceImage.rows; ++y) 
+	{
+		for (int x = 0; x < sourceImage.cols; ++x){
+			destImage.at<Vec3b>(y, x)[2] = 0.299 * sourceImage.at<Vec3b>(y, x)[2] + 0.587 * sourceImage.at<Vec3b>(y, x)[2] + 0.144 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[1] = 0.596 * sourceImage.at<Vec3b>(y, x)[2] - 0.275 * sourceImage.at<Vec3b>(y, x)[2] - 0.321 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[0] = 0.212 * sourceImage.at<Vec3b>(y, x)[2] - 0.528 * sourceImage.at<Vec3b>(y, x)[2] + 0.311 * sourceImage.at<Vec3b>(y, x)[2]; 
+		}
+
 	}
 }
 
@@ -364,7 +381,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			{
 			  cout<<" SALIDASALIDA "<<max<<max_value<<min<<min_value<<endl;
 			}*/
-							
+
 			double max_value_lineal = (double)max_value/(double)255;
 			double min_value_lineal = (double)min_value/(double)255;
 			double v = max_value_lineal;
@@ -386,7 +403,7 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			  cout<<"VALORES";
 			  cout<<"H"<<h<<" "<<(int)h/2<<"S"<<s<<" "<<(int)s*255<<"V"<<v<<" "<<(int)v*255<<endl;
 			}*/
-				
+
 				//se sustituyen los valores hsv en cada canal de 8 bits
 			hsvImage.at<Vec3b>(y, x)[0]=(int)(v*255);
 			hsvImage.at<Vec3b>(y, x)[1]=(int)(s*255);
@@ -399,17 +416,17 @@ void rgb2hsv(Mat &sourceImage, Mat &hsvImage)
 			  cout<<"H IMAGEN"<<hsvImage.at<Vec3b>(y, x)[2];
 			}
 			*/
-			
+
 			//Hacer todo default
 			max='n';
 			min='n';
 			max_value = 0;
 			min_value = 255;
-			
+
 			//cvSplit(hsvImage, h/2, s, v, 0);
 		}
 	}
-	
+
 }
 
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram)
@@ -510,7 +527,7 @@ Mat highlightObject(Mat sourceImage)
 void rawToMat(Mat &destImage, CRawImage* sourceImage)
 {	
 	uchar *pointerImage = destImage.ptr(0);
-	
+
 	for (int i = 0; i < 240*320; i++)
 	{
 		pointerImage[3*i] = sourceImage->data[3*i+2];
@@ -583,7 +600,7 @@ void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram)
 
 		}
 
-		
+
 
 }
 
@@ -652,6 +669,6 @@ void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram)
 
 		}
 
-		
+
 
 }
