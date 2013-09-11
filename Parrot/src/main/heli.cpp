@@ -43,6 +43,7 @@ void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
 void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
+void rgb2yiq(Mat &sourceImage, Mat &destImage);
 void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
 void generateRedHistogram (Mat &sourceImage, Mat &redHistogram);
 void generateBlueHistogram (Mat &sourceImage, Mat &blueHistogram);
@@ -67,6 +68,7 @@ int main(int argc,char* argv[])
 	Mat snapshot = Mat(240, 320, CV_8UC3);
 	Mat bwImage = Mat(240, 320, CV_8UC3);
 	Mat filteredImage = Mat(240, 320, CV_8UC3);
+	Mat yiqImage = Mat(240, 320, CV_8UC3);
 	Mat hsvImage = Mat(240, 320, CV_8UC3);
 	Mat flippedImage;
 	Mat redHistogram = Mat(306,256,CV_8UC3);
@@ -168,6 +170,8 @@ int main(int argc,char* argv[])
 	        imshow("Red Histogram",redHistogram);
 	        imshow("Green Histogram",greenHistogram);
 	        imshow("Blue Histogram",blueHistogram);
+	        rgb2yiq(currentImage, yiqImage);
+	        imshow("YIQ", yiqImage)
 	        
     	}
 /*
@@ -302,6 +306,19 @@ void luminosity (Mat &sourceImage,  Mat &destImage, int umbral)
 				 
 			}
 		}
+	}
+}
+
+void rgb2yiq(Mat &sourceImage, Mat &destImage)
+{
+	for (int y = 0; y < sourceImage.rows; ++y) 
+	{
+		for (int x = 0; x < sourceImage.cols; ++x){
+			destImage.at<Vec3b>(y, x)[2] = 0.299 * sourceImage.at<Vec3b>(y, x)[2] + 0.587 * sourceImage.at<Vec3b>(y, x)[2] + 0.144 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[1] = 0.596 * sourceImage.at<Vec3b>(y, x)[2] - 0.275 * sourceImage.at<Vec3b>(y, x)[2] - 0.321 * sourceImage.at<Vec3b>(y, x)[2];
+			destImage.at<Vec3b>(y, x)[0] = 0.212 * sourceImage.at<Vec3b>(y, x)[2] - 0.528 * sourceImage.at<Vec3b>(y, x)[2] + 0.311 * sourceImage.at<Vec3b>(y, x)[2]; 
+		}
+
 	}
 }
 
