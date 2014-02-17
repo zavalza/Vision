@@ -1,372 +1,362 @@
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include "SDL/SDL.h"
-/*
- * A simple 'getting started' interface to the ARDrone, v0.2 
- * author: Tom Krajnik
- * The code is straightforward,
- * check out the CHeli class and main() to see 
- */
-#include <stdlib.h>
-#include "CHeli.h"
-#include <unistd.h>
-#include <stdio.h>
-#include <iostream>
-
-using namespace std;
-using namespace cv;
-
+#include "definitions.h"
+typedef list <Segmento *> Segmentos;
+map <int, Tabla *> tablaColores;
+double thresh = 0;
+bool freeze = false;
+int deltaClick;
+int valBclick,valGclick,valRclick,valBin;
+int limInfB = 0, limSupB = 0, limInfG = 0, limSupG = 0, limInfR = 0, limSupR = 0;
+Mat currentImage = Mat(height, width, CV_8UC3);
+Mat hsvImage = Mat(height, width, CV_8UC3);
+Mat new_hsvImage = Mat(height, width, CV_8UC3);
+Mat filteredImage = Mat(height, width, CV_8UC3);
+Mat coloredImage = Mat(height, width, CV_8UC3);
+vector<Mat> hsv_planes;
 int RTemp = 0, GTemp = 0, BTemp = 0;
-int RED = 0, GREEN = 0, BLUE = 0;
+int redClick = 0, greenClick = 0, blueClick = 0;
+int hClick = 0, sClick = 0, vClick = 0;
 vector<Point> points;
 int coordinateX, coordinateY;
 bool stop = false;
+bool newValues = false;
+
 CRawImage *image;
 CHeli *heli;
-float pitch, roll, yaw, height;
+
+float pitch, roll, yaw, heightParrot;
 int hover;
-// Joystick related
-SDL_Joystick* m_joystick;
-bool useJoystick;
 int joypadRoll, joypadPitch, joypadVerticalSpeed, joypadYaw;
 bool navigatedWithJoystick, joypadTakeOff, joypadLand, joypadHover;
-
+bool firstTime = true;
+Mat highlightObject(Mat sourceImage);
 void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage);
 void mouseCoordinates(int event, int x, int y, int flags, void* param);
-void luminosity (Mat &sourceImage, Mat &bwImage, int umbral);
+void veillon(Mat &srcImage);
+void tablaPrint();
+void matClean(Mat &srcImage);
+void pintaSegmento(int y, int xStart, int xEnd, int objectValue);
+void objectValue2BGR(Mat &srcImage, Mat &destImage);
+void llenaColores(unsigned char Colores[][3], int numeroDeColores);
+
 void rawToMat(Mat &destImage, CRawImage* sourceImage);
-void rgb2hsv(Mat &sourceImage, Mat &hsvImage);
-int main(int argc,char* argv[])
+/*unsigned char Colores[20][3]={{0,0,0}, //Black
+							{0,255,0},//Green
+							{0,0,255},//Red
+							{255,0,0},//Blue
+							{255,0,255},//Violet
+							{255,255,0},//Red
+							{255,0,255},//Red
+							{120,0,120},//Red
+							{120,0,120},//Red
+							{0,255,0},//Green
+							{0,0,255},//Red
+							{0,255,255},//Red
+							{255,0,255},//Red
+							{255,255,0},//Red
+							{255,0,255},//Red
+							{120,0,120},
+							{120,0,120},//Red
+							{120,0,120}};//Red};
+*/
+unsigned char Colores[50][3];
+
+
+int main(int argc, char* argv[])
 {
+	// Required variables
+	Moments moments; 
+	double hu[7];
+	//SDL_Joystick* m_joystick;
+	//bool useJoystick;
+
+	Mat element = getStructuringElement(MORPH_RECT, Size(3, 3), Point(1,1));
 	//establishing connection with the quadcopter
 	heli = new CHeli();
-	
+	Mat imgFiltrada = Mat(height, width, CV_8UC3);
 	//this class holds the image from the drone	
 	image = new CRawImage(320,240);
 
-
+	//VideoCapture camera;
+	//camera.open(0);
+	//Mat testImage = imread("C:/test640.jpg",CV_LOAD_IMAGE_COLOR);
+	//Mat testImage = imread("/media/OS/test3Y.jpg",CV_LOAD_IMAGE_COLOR);
 	// Initial values for control	
-    pitch = roll = yaw = height = 0.0;
-    joypadPitch = joypadRoll = joypadYaw = joypadVerticalSpeed = 0.0;
+    pitch = roll = yaw = heightParrot = 0.0;
+    joypadPitch = joypadRoll = joypadYaw = joypadVerticalSpeed = 0;
 
 	// Destination OpenCV Mat	
-	Mat currentImage = Mat(240, 320, CV_8UC3);
-	Mat snapshot = Mat(240, 320, CV_8UC3);
-	Mat bwImage = Mat(240, 320, CV_8UC3);
-	Mat hsvImage = Mat(240, 320, CV_8UC3);
-	Mat flippedImage;
-
+	Mat snapshot = Mat(height, width, CV_8UC3);
+	Mat bwImage = Mat(height, width, CV_8UC3);
+	Mat yiqImage = Mat(height, width, CV_8UC3);
+	//Mat histImage = Mat(240,320, CV_8UC3);
 	namedWindow("ParrotCam");
     setMouseCallback("ParrotCam", mouseCoordinates);
 	// Show it	
 	imshow("ParrotCam", currentImage);
 
     // Initialize joystick
-    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
-    useJoystick = SDL_NumJoysticks() > 0;
-    if (useJoystick)
-    {
-        SDL_JoystickClose(m_joystick);
-        m_joystick = SDL_JoystickOpen(0);
-    }
+    //SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
+    //useJoystick = SDL_NumJoysticks() > 0;
+    //if (useJoystick)
+    //{
+    //    SDL_JoystickClose(m_joystick);
+    //    m_joystick = SDL_JoystickOpen(0);
+    //}
 
     while (stop == false)
     {
 
         // Clear the console
         printf("\033[2J\033[1;1H");
+	//system("cls"); Windows
+        //if (useJoystick)
+        //{
+        //    SDL_Event event;
+        //    SDL_PollEvent(&event);
 
-        if (useJoystick)
-        {
-            SDL_Event event;
-            SDL_PollEvent(&event);
-
-            joypadRoll = SDL_JoystickGetAxis(m_joystick, 2);
-            joypadPitch = SDL_JoystickGetAxis(m_joystick, 3);
-            joypadVerticalSpeed = SDL_JoystickGetAxis(m_joystick, 1);
-            joypadYaw = SDL_JoystickGetAxis(m_joystick, 0);
-            joypadTakeOff = SDL_JoystickGetButton(m_joystick, 1);
-            joypadLand = SDL_JoystickGetButton(m_joystick, 2);
-            joypadHover = SDL_JoystickGetButton(m_joystick, 0);
-        }
+        //    joypadRoll = SDL_JoystickGetAxis(m_joystick, 2);
+        //    joypadPitch = SDL_JoystickGetAxis(m_joystick, 3);
+        //    joypadVerticalSpeed = SDL_JoystickGetAxis(m_joystick, 1);
+        //    joypadYaw = SDL_JoystickGetAxis(m_joystick, 0);
+        //    joypadTakeOff = SDL_JoystickGetButton(m_joystick, 1);
+        //    joypadLand = SDL_JoystickGetButton(m_joystick, 2);
+        //    joypadHover = SDL_JoystickGetButton(m_joystick, 0);
+        //}
 
         // prints the drone telemetric data, helidata struct contains drone angles, speeds and battery status
         printf("===================== Parrot Basic Example =====================\n\n");
-        fprintf(stdout, "Angles  : %.2lf %.2lf %.2lf \n", helidata.phi, helidata.psi, helidata.theta);
-        fprintf(stdout, "Speeds  : %.2lf %.2lf %.2lf \n", helidata.vx, helidata.vy, helidata.vz);
-        fprintf(stdout, "Battery : %.0lf \n", helidata.battery);
-        fprintf(stdout, "Hover   : %d \n", hover);
-        fprintf(stdout, "Joypad  : %d \n", useJoystick ? 1 : 0);
-        fprintf(stdout, "  Roll    : %d \n", joypadRoll);
-        fprintf(stdout, "  Pitch   : %d \n", joypadPitch);
-        fprintf(stdout, "  Yaw     : %d \n", joypadYaw);
-        fprintf(stdout, "  V.S.    : %d \n", joypadVerticalSpeed);
-        fprintf(stdout, "  TakeOff : %d \n", joypadTakeOff);
-        fprintf(stdout, "  Land    : %d \n", joypadLand);
-        fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
+        //fprintf(stdout, "Angles  : %.2lf %.2lf %.2lf \n", helidata.phi, helidata.psi, helidata.theta);
+        //fprintf(stdout, "Speeds  : %.2lf %.2lf %.2lf \n", helidata.vx, helidata.vy, helidata.vz);
+        //fprintf(stdout, "Battery : %.0lf \n", helidata.battery);
+        //fprintf(stdout, "Hover   : %d \n", hover);
+        //fprintf(stdout, "Joypad  : %d \n", useJoystick ? 1 : 0);
+        //fprintf(stdout, "  Roll    : %d \n", joypadRoll);
+        //fprintf(stdout, "  Pitch   : %d \n", joypadPitch);
+        //fprintf(stdout, "  Yaw     : %d \n", joypadYaw);
+        //fprintf(stdout, "  V.S.    : %d \n", joypadVerticalSpeed);
+        //fprintf(stdout, "  TakeOff : %d \n", joypadTakeOff);
+        //fprintf(stdout, "  Land    : %d \n", joypadLand);
+        //fprintf(stdout, "Navigating with Joystick: %d \n", navigatedWithJoystick ? 1 : 0);
         fprintf(stdout, "Click coordinates: (%d, %d) \n", coordinateX, coordinateY);
-        if (currentImage.data) 
+        fprintf(stdout, "R: %d, G: %d, B: %d\n", redClick, greenClick, blueClick);
+		fprintf(stdout, "H: %d, S: %d, V: %d\n", hClick, sClick, vClick);
+		if(!tablaColores.empty())
 		{
-	        RTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[2];
-	        GTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[1];
-	        BTemp = currentImage.at<Vec3b>(coordinateY, coordinateX)[0];
-    	}
-    	RED = RTemp;
-    	GREEN = GTemp; 
-    	BLUE = BTemp;
-        fprintf(stdout, "R: %d, G: %d, B: %d", RED, GREEN, BLUE);
+			tablaPrint();
+			cout << endl << "Momentos correctos" << endl;
+			cout << "m00 " << moments.m00 << endl;
+			cout << "Centro(" << moments.m10 / moments.m00 << ", " << moments.m01 / moments.m00 << ")" <<  endl;
+			cout << "m10 " << moments.m10 << endl;
+			cout << "m01 " << moments.m01 << endl;
+			cout << "m11 " << moments.m11 << endl;
+			cout << "m20 " << moments.m20 << endl;
+			cout << "m02 " << moments.m02 << endl;
+			cout << "mu20 " << moments.mu20 << endl;
+			cout << "mu02 " << moments.mu02 << endl;
+			cout << "mu11 " << moments.mu11 << endl;
+			cout << "nu20 " << moments.nu20 << endl;
+			cout << "nu02 " << moments.nu02 << endl;
+			cout << "phi1 " << hu[0] << endl;
+			cout << "phi2 " << hu[1] << endl;
+			cout << "e " << moments.nu20 / moments.nu02 << endl;
+		}
 
 		//image is captured
 		heli->renewImage(image);
-
+        
+		
+		
+		//camera >> currentImage;
+		
+		//currentImage = testImage;
+		
 		// Copy to OpenCV Mat
 		rawToMat(currentImage, image);
 		imshow("ParrotCam", currentImage);
 
-        char key = waitKey(5);
+        char key = waitKey(100);
 		switch (key) {
 			case 'a': yaw = -20000.0; break;
 			case 'd': yaw = 20000.0; break;
-			case 'w': height = -20000.0; break;
-			case 's': height = 20000.0; break;
+			case 'w': heightParrot = -20000.0; break;
+			case 's': heightParrot = 20000.0; break;
 			//case 'q': heli->takeoff(); break;
-			case 'e': heli->land(); break;
-			case 'z': heli->switchCamera(0); break;
-			case 'x': heli->switchCamera(1); break;
-			case 'c': heli->switchCamera(2); break;
-			case 'v': heli->switchCamera(3); break;
+			//case 'e': heli->land(); break;
+			//case 'z': heli->switchCamera(0); break;
+			//case 'x': heli->switchCamera(1); break;
+			//case 'c': heli->switchCamera(2); break;
+			//case 'v': heli->switchCamera(3); break;
 			case 'j': roll = -20000.0; break;
 			case 'l': roll = 20000.0; break;
 			case 'i': pitch = -20000.0; break;
 			case 'k': pitch = 20000.0; break;
             case 'h': hover = (hover + 1) % 2; break;
-            // ***************Punto 1***************
-            case 'f': 
-            snapshot = currentImage;
-            imshow("Frozen image", snapshot);
-            break;
-            // ***************Punto 2***************
-            case 'b': 
-            snapshot = currentImage;
-            //blackNwhite(snapshot, atoi(argv[1]) );
-            luminosity(snapshot, bwImage, atoi(argv[1]));
-            imshow("Black and White", bwImage);
-            break;
-            // ***************Invertir**************
-            case 'm': 
-            snapshot = currentImage;
-            flipImageEfficient(snapshot, flippedImage);
-            imshow("Original", snapshot);
-            imshow("Flipped", flippedImage);
-            break;
-	    // *************Transformar_a_HSV**************
-            case 't': 
-            snapshot = currentImage;
-            rgb2hsv(snapshot, hsvImage);
-            imshow("Original", snapshot);
-            imshow("HSV", hsvImage);
-            break;
-            // ***************Punto 1***************
+            case 'f': freeze = !freeze;  break;
             case 27: stop = true; break;
-            default: pitch = roll = yaw = height = 0.0;
+            default: pitch = roll = yaw = heightParrot = 0.0;
 		}
-/*
-        if (joypadTakeOff) {
-            heli->takeoff();
-        }
-        if (joypadLand) {
-            heli->land();
-        }
-        hover = joypadHover ? 1 : 0;
 
-        //setting the drone angles
-        if (joypadRoll != 0 || joypadPitch != 0 || joypadVerticalSpeed != 0 || joypadYaw != 0)
-        {
-            heli->setAngles(joypadPitch, joypadRoll, joypadYaw, joypadVerticalSpeed, hover);
-            navigatedWithJoystick = true;
-        }
-        else
-        {
-            heli->setAngles(pitch, roll, yaw, height, hover);
-            navigatedWithJoystick = false;
-        }
-*/
+		if(!freeze){
+			
+			//filteredImage = highlightObject(currentImage);
+			//imshow("Filtered image", filteredImage);
+			
+			//Aplicar filtro de suavizado
+			//GaussianBlur(currentImage, currentImage, cv::Size (3, 3),0);
+			medianBlur(currentImage, currentImage, 5);
+			cvtColor(currentImage, hsvImage, CV_BGR2HSV);
+			//cvtColor(currentImage, bwImage, CV_BGR2GRAY);
+			//imshow("BW", bwImage);
+			//imshow("HSV",hsvImage);
+			/// Separate the image in 3 planes
+			split( hsvImage, hsv_planes );
+			//threshold(bwImage, yiqImage, 30, 255, THRESH_BINARY);
+			//imshow("Bin", yiqImage);
+			
+			/*if(newValues)
+			{
+				firstTime = false;
+			}*/
+			Mat filter_mask = Mat(height, width, CV_8UC1);
+			vector <Mat> dividedHSV(3);
+			dividedHSV[0] = hsv_planes[0];
+			dividedHSV[1] = hsv_planes[1];
+			dividedHSV[2] = hsv_planes[2];
+			int limInfH = 15;
+			int limSupH = 15;
+			if(hClick < limInfH)
+			{
+				limInfH = hClick;
+			}
+			else if(hClick + limSupH > 255)
+			{
+				limSupH = 255 - hClick;
+			}
+				
+				  
+			inRange(hsvImage, Scalar(hClick - limInfH, 40, 40), Scalar(hClick + limSupH, 255, 255), filter_mask);
+				
+			//new_hsvImage=hsvImage.mul(filter_mask);
+			dividedHSV[2]=hsv_planes[2].mul(filter_mask / 255);
+				
+			merge(dividedHSV,new_hsvImage);
+			//imshow("NEW HSV", new_hsvImage);
+			
+			morphologyEx(filter_mask, filter_mask, MORPH_OPEN, element);
+			if(!firstTime)
+			{
+				imshow("Filter Mask", filter_mask);
+				//imwrite("C:/Users/Paulz/Documents/8voSemestre/mask.jpg",filter_mask);
+				matClean(filter_mask);
+				llenaColores(Colores,10);
+				veillon(filter_mask);
+				objectValue2BGR(coloredImage, coloredImage);
+				
+				//imwrite("C:/Users/Paulz/Documents/8voSemestre/colored.jpg",coloredImage);
+				firstTime=true;
+				moments = cv::moments(filter_mask, true);
+				HuMoments(moments, hu);
+			}
+			cvtColor(new_hsvImage,filteredImage,CV_HSV2BGR);
+			
+			if(!points.empty())
+			{
+				for (unsigned int i = 0; i < points.size(); ++i) 
+				{
+					circle(coloredImage, (Point) points[i], 5, Scalar(255, 0, 0), -1);
+				}
+				imshow("Colored Image", coloredImage);
+				//points.clear();
+			}
+			
+			//dilate(filteredImage,filteredImage, Mat());
+			//firstTime?__nop():imshow("Filtered image", filteredImage);
+			//newValues=false;
+			//}
+			//threshold(hsv_planes[1], hsv_planes[1],40, 255,THRESH_BINARY);
+			//threshold(hsv_planes[2], hsv_planes[2],50, 255,THRESH_BINARY);
+    	}
+		//Sleep(15); Windows
         usleep(15000);
 	}
-	
-	heli->land();
-    SDL_JoystickClose(m_joystick);
-    delete heli;
+	//heli->land();
+	//SDL_JoystickClose(m_joystick);
+	delete heli;
 	delete image;
+	//camera.release();
 	return 0;
-}
-
-void flipImageEfficient(const Mat &sourceImage, Mat &destinationImage)
-{
-	if (destinationImage.empty())
-		destinationImage = Mat(sourceImage.rows, sourceImage.cols, sourceImage.type());
-
-	int channels = sourceImage.channels();
-	
-	for (int y = 0; y < sourceImage.rows; ++y) 
-	{
-		uchar* sourceRowPointer = (uchar*) sourceImage.ptr<uchar>(y);
-		uchar* destinationRowPointer = (uchar*) destinationImage.ptr<uchar>(y);
-		for (int x = 0; x < sourceImage.cols / 2; ++x)
-			for (int i = 0; i < channels; ++i)
-			{
-				destinationRowPointer[x * channels + i] = sourceRowPointer[(sourceImage.cols - 1 - x ) * channels + i];
-				destinationRowPointer[(sourceImage.cols - 1 - x) * channels + i] = sourceRowPointer[x * channels + i];
-			}
-	}
 }
 
 void mouseCoordinates(int event, int x, int y, int flags, void* param)
 {
     switch (event)
     {
+	    
+	  /*CV_EVENT_MOUSEMOVE - when the mouse pointer moves over the specified window
+		CV_EVENT_LBUTTONDOWN - when the left button of the mouse is pressed on the specified window
+		CV_EVENT_RBUTTONDOWN - when the right button of the mouse is pressed on the specified window
+		CV_EVENT_MBUTTONDOWN - when the middle button of the mouse is pressed on the specified window
+		CV_EVENT_LBUTTONUP - when the left button of the mouse is released on the specified window
+		CV_EVENT_RBUTTONUP - when the right button of the mouse is released on the specified window
+		CV_EVENT_MBUTTONUP - when the middle button of the mouse is released on the specified window */
+
         case CV_EVENT_LBUTTONDOWN:
-            //cout << "  Mouse X, Y: " << x << ", " << y ;
-            //cout << endl;
             coordinateX = x;
             coordinateY = y;
+            redClick = currentImage.at<Vec3b>(y, x)[2];
+	        greenClick = currentImage.at<Vec3b>(y, x)[1];
+	        blueClick = currentImage.at<Vec3b>(y, x)[0];
+		
+			hClick = hsvImage.at<Vec3b>(y, x)[0];
+	        sClick = hsvImage.at<Vec3b>(y, x)[1];
+	        vClick = hsvImage.at<Vec3b>(y, x)[2];
+			firstTime=false;
+
+			deltaClick = 20;
+			limInfR = redClick - (deltaClick * 255) / 100;
+			limSupR = redClick + (deltaClick * 255) / 100;
+			limInfG = greenClick - (deltaClick * 255) / 100;
+			limSupG = greenClick+ (deltaClick * 255) / 100;
+			limInfB = blueClick - (deltaClick * 255) / 100;
+			limSupB = blueClick + (deltaClick * 255) / 100;
+			break;
+
             /*  Draw a point */
-            points.push_back(Point(x, y));
+            //points.push_back(Point(x, y));
             break;
-        case CV_EVENT_MOUSEMOVE:
-            break;
-        case CV_EVENT_LBUTTONUP:
+        case CV_EVENT_RBUTTONDOWN:
             break;
     }
 }
-
-void luminosity (Mat &sourceImage, Mat &bwImage, int umbral)
+Mat highlightObject(Mat sourceImage)
 {
-	int channels = sourceImage.channels(); 	// Numero de canales
-	// int average;
-	int pond;
-	for(int y = 0; y < sourceImage.rows; ++y)
+	Mat highlightedImg;
+	highlightedImg = sourceImage.clone();
+	unsigned char *source, *dest;
+	for(int i = 0; i < sourceImage.rows; ++i)
 	{
-		for(int x = 0; x < sourceImage.cols; ++x)
-		{
-			for(int i = 0; i < channels; ++i)
-			{
-				//average = (sourceImage.at<Vec3b>(y, x)[0] + sourceImage.at<Vec3b>(y, x)[1] + sourceImage.at<Vec3b>(y, x)[2]) / 3;
-				pond = 0.1 * sourceImage.at<Vec3b>(y, x)[0] + 0.3 * sourceImage.at<Vec3b>(y, x)[1] + 0.6 * sourceImage.at<Vec3b>(y, x)[2];
-				
-				if(pond > umbral)
-					pond = 255;
-				else
-					pond = 0;
+		source = (unsigned char*)(sourceImage.ptr<uchar>(i));
+		dest = (unsigned char*)(highlightedImg.ptr<uchar>(i));
 
-				switch(i)
-				{
-					case 0: bwImage.at<Vec3b>(y, x)[i] = pond; // Blue
-					break;
-					case 1: bwImage.at<Vec3b>(y, x)[i] = pond; // Green
-					break;
-					case 2: bwImage.at<Vec3b>(y, x)[i] = pond; // Red
-					break;
-					default:
-					break;
-				}
-				/*
-				switch(i)
-				{
-					case 0: sourceImage.at<Vec3b>(y, x)[i] = average; // Blue
-					break;
-					case 1: sourceImage.at<Vec3b>(y, x)[i] = average; // Green
-					break;
-					case 2: sourceImage.at<Vec3b>(y, x)[i] = average; // Red
-					break;
-					default:
-					break;
-				}*/
-				 
+		for(int j = 0; j < sourceImage.cols; ++j)
+		{
+			if (source[j * 3 + 0] < limInfB || source[j * 3 + 0] > limSupB || source[j * 3 + 1] < limInfG || source[j * 3 + 1] > limSupG || source[j * 3 + 2] < limInfR || source[j * 3 + 2] > limSupR)
+			{
+				dest[j * 3 + 0] = 0;
+				dest[j * 3 + 1] = 0;
+				dest[j * 3 + 2] = 0;
+			}
+			else
+			{
+				dest[j * 3 + 0] = source[j * 3 + 0];
+				dest[j * 3 + 1] = source[j * 3 + 1];
+				dest[j * 3 + 2] = source[j * 3 + 2];
 			}
 		}
 	}
-}
 
-void rgb2hsv (Mat &sourceImage, Mat &hsvImage)
-{
-	int channels = sourceImage.channels(); 	// Numero de canales
-	float vector_r_lineal = 0;
-	float vector_g_lineal = 0;
-	float vector_b_lineal = 0;
-	char max='n';
-	char min='n';
-	int max_value = 0;
-	int min_value = 0;
-	
-	for(int y = 0; y < sourceImage.rows; ++y)
-	{
-		for(int x = 0; x < sourceImage.cols; ++x)
-		{
-			vector_r_lineal = (float)sourceImage.at<Vec3b>(y, x)[2] / (float)255;
-			vector_g_lineal = (float)sourceImage.at<Vec3b>(y, x)[1] / (float)255;
-			vector_b_lineal = (float)sourceImage.at<Vec3b>(y, x)[0] / (float)255;
-			//Encuentra maximo y minimo
-			for (int i = 0; i < channels; ++i)
-			{
-				if (sourceImage.at<Vec3b>(y, x)[i] > max_value)
-				{
-					max_value = sourceImage.at<Vec3b>(y, x)[i];
-					switch(i)
-					{
-						  case 0: max = 'b'; // Blue
-						  break;
-						  case 1: max = 'g'; // Green
-						  break;
-						  case 2: max = 'r'; // Red
-						  break;
-						  default:
-						  break;
-					}
-				}
-				else if(sourceImage.at<Vec3b>(y, x)[i] < min_value)
-				{
-					min_value = sourceImage.at<Vec3b>(y, x)[i];
-					switch(i)
-					{
-						case 0: min = 'b'; // Blue
-						break;
-						case 1: min = 'g'; // Green
-						break;
-						case 2: min = 'r'; // Red
-						break;
-						default:
-						break;
-					}
-				}
-			}
-			
-			max_value_lineal = (float)max_value/(float)255;
-			min_value_lineal = (float)min_value/(float)255;
-			float v = max_value_lineal;
-			float s = 0; //Default si v = 0
-			float h = 180; //Default si v = 0
-			if(v != 0) //Si el m√°ximo no es cero
-			{
-				s = (max_value_lineal - min_value_lineal) / max_value_lineal;
-				switch(max)
-				{
-					case 'r': h=(vector_g_lineal-vector_b_lineal)*60/(max_value_lineal-min_value_lineal);
-					case 'g': h=((vector_b_lineal-vector_r_lineal)*60/(max_value_lineal-min_value_lineal))+120;
-					case 'b': h=((vector_r_lineal-vector_g_lineal)*60/(max_value_lineal-min_value_lineal))+240;
-				}
-			}
-			
-			//se sustituyen los valores hsv en cada canal de 8 bits
-			hsvImage.at<Vec3b>(y, x)[0]=v*255;
-			hsvImage.at<Vec3b>(y, x)[1]=s*255;
-			hsvImage.at<Vec3b>(y, x)[2]=h/2;//Se divide para que se pueda representar en 8 bits
-		}
-	}
-	
+	return highlightedImg;
 }
-
 void rawToMat(Mat &destImage, CRawImage* sourceImage)
 {	
 	uchar *pointerImage = destImage.ptr(0);
@@ -379,3 +369,542 @@ void rawToMat(Mat &destImage, CRawImage* sourceImage)
 	}
 }
 
+
+int sumaRecursiva(int iz, int der, int caso)
+{
+	int suma = 0;
+	switch(caso)
+	{
+		case 1:
+			for(int i = iz;i <= der; i++)
+				suma += i;
+			return suma;
+			break;
+		case 2:
+			for(int i = iz;i <= der; i++)
+				suma += i * i;
+			return suma;
+			break;
+	}
+	return 0;
+}
+
+double otraSumaRecursiva(int iz, int der, int y)
+{
+	double suma = 0;
+	for(int i = iz; i <= der; i++)
+	{
+		suma += i * y;
+	}
+	return suma;
+}
+/*int sumaRecursiva(int iz, int der)
+{
+	if(iz == der)
+	{
+		return der;
+	}
+	else
+	{
+		return iz + sumaRecursiva(iz + 1, der);
+	}
+}
+*/
+void tablaPrint()
+{
+	for(map<int, Tabla *>::iterator it = tablaColores.begin(); it != tablaColores.end(); ++it)
+	{
+		it->second->printTabla();
+		//fprintf(stdout, "counter = %d\n", it->second->getCount());
+		//cout << "counter = " <<  it->second->getCount() << endl;
+	}
+}
+
+void veillon(Mat &srcImage)
+{
+	list <Segmento> filas[height];
+	Segmentos *ptrSegmentos = (Segmentos *) &filas[0];
+	Segmentos *ptrActual = (Segmentos *) &filas[0];
+	Segmentos *nextPtrSegmentos = (Segmentos *) &filas[1];
+	list <Segmento*>::iterator itSegmentos = ptrSegmentos->begin();
+	list <Segmento*>::iterator nextitSegmentos = nextPtrSegmentos->begin();
+	list <Segmento*>::iterator itAuxSegmentos = ptrActual->begin();
+
+	bool izquierda = true;
+	bool analizaCiclos = false;
+	bool posibleApertura = false;
+	bool posibleCerradura = false;
+	Punto puntoAux(0,0);
+	int id = 0;
+	map<int, Tabla *>::iterator itMap;
+
+	// Momentos estadisticos
+	double m00, m01, m10, m11, m20, m02;
+	double mu20, mu02, mu11;
+	double nu20, nu02, nu11;
+	
+	tablaColores.clear();
+	for (int i = 0; i < height; ++i)
+	{
+		if(i == 1)
+		{
+			analizaCiclos = true;
+		}
+		izquierda = true;
+		for (int j = 0; j < width; ++j)
+		{
+			if(i == 0 && j == 0 && srcImage.at<uchar>(i, j) != 0/* mat[i][j] == 1*/)	// Si esta en el origen
+			{
+				ptrSegmentos -> push_back(new Segmento(j, 0, 0));
+				itSegmentos = ptrSegmentos->begin();
+				izquierda = false;
+				if(srcImage.at<uchar>(i,j+1) == 0 /*mat[i][j + 1] == 0*/) // Si es un solo pixel 
+				{
+					(*itSegmentos)->setRight(j);
+					izquierda = true;
+				}
+
+			}
+
+			else if(j == 0)	// Si esta en la primera columna no se revisa a la izquierda
+			{
+				if(srcImage.at<uchar>(i,j) != 0 /*mat[i][j] == 1*/)
+				{
+					ptrSegmentos -> push_back(new Segmento(j, 0, 0));
+					itSegmentos = ptrSegmentos->end();
+					--itSegmentos;
+					izquierda = false;
+					if(srcImage.at<uchar>(i,j+1) == 0 /*mat[i][j + 1] == 0*/)	// Si el ancho es un pixel
+					{
+						(*itSegmentos)->setRight(j);
+						izquierda = true;
+					}
+				}
+			}
+			else if(j > 0)
+			{
+
+				if(izquierda && srcImage.at<uchar>(i,j) != 0 && srcImage.at<uchar>(i,j-1) == 0/*mat[i][j] == 1 && mat[i][j - 1] == 0*/ && j < width - 1)	// Limite izquierdo
+				{
+					ptrSegmentos -> push_back(new Segmento(j, 0, 0));
+					itSegmentos = ptrSegmentos->end();
+					--itSegmentos;
+					izquierda = false;
+					if(srcImage.at<uchar>(i,j+1) == 0 /*mat[i][j + 1] == 0*/)	//Si el ancho es un pixel
+					{
+						(*itSegmentos)->setRight(j);
+						izquierda = true;
+					}
+				}
+				else if(!izquierda && srcImage.at<uchar>(i,j) != 0 /*mat[i][j] == 1*/&& srcImage.at<uchar>(i,j+1) == 0 /*mat[i][j + 1] == 0*/ && j < width)	// // Limite derecho
+				{
+					(*itSegmentos)->setRight(j);
+					izquierda = true;
+				}
+
+				if(j == width - 1)	// Caso ultima columna
+				{
+					if(izquierda && j == width - 1 && srcImage.at<uchar>(i,j) != 0 /*mat[i][j] == 1*/ && srcImage.at<uchar>(i,j-1) == 0 /*mat[i][j-1] == 0*/)	// Caso ultima columna
+					{
+						ptrSegmentos -> push_back(new Segmento(j, j, 0));
+						itSegmentos = ptrSegmentos->end();
+						--itSegmentos;
+						izquierda = true;
+					}
+					else if(!izquierda && srcImage.at<uchar>(i,j) != 0 /*mat[i][j] == 1*/)	// Se completa el segmento en la ultima columna
+					{
+						(*itSegmentos)->setRight(j);
+						izquierda = true;
+					}
+				}
+
+			}
+		}
+		
+		if(analizaCiclos)
+		{
+			// ptrSegmentos i + 1
+			nextPtrSegmentos = ptrSegmentos;
+			nextitSegmentos = nextPtrSegmentos->begin(); // i + 1
+			ptrActual = nextPtrSegmentos;
+			--ptrActual;
+			//ptrActual = nextPtrSegmentos;
+			itSegmentos = ptrActual->begin();		// i
+			
+			if(!(ptrActual->empty() && nextPtrSegmentos->empty()))
+			{
+				while(itSegmentos != ptrActual->end() || nextitSegmentos != nextPtrSegmentos->end())
+				{
+					//Inicio
+
+					if(!(nextPtrSegmentos->empty()) && (ptrActual->empty() || ((*itSegmentos)->getLeft() > (*nextitSegmentos)->getRight())))
+					{
+						(*nextitSegmentos)->setObject(id);
+						tablaColores.insert(pair <int, Tabla*> (id, new Tabla(id, (*nextitSegmentos)->getRight() - (*nextitSegmentos)->getLeft() + 1 )));
+						++id; 
+						// No se debe de eliminar i + 1 !
+						++nextitSegmentos;
+					}
+					else if(!(nextPtrSegmentos->empty()) && traslape)
+					{
+						if( ( (*nextitSegmentos)->getTouched() == false) && (*itSegmentos)->getTouched() == false) //Revisar si nadie esta tocado
+						{ 
+                        
+							if((*nextitSegmentos)->getRight() > (*itSegmentos)->getRight()) //Posible Bloque cerradura
+							{
+								(*nextitSegmentos)->setTouched(true);
+								(*nextitSegmentos)->setObject((*itSegmentos)->getObject());
+								tablaColores[(*itSegmentos)->getObject()]->addArea((*nextitSegmentos)->getRight() - (*nextitSegmentos)->getLeft() + 1);
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i); //mx,my
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+								if(itSegmentos == ptrActual->end() || !traslape)
+								{
+									(*nextitSegmentos)->setTouched(false);
+									++nextitSegmentos;
+								}
+								//posibleCerradura = true;
+							}
+							else if((*itSegmentos)->getRight() > (*nextitSegmentos)->getRight()) //Posible Bloque apertura
+							{ 
+								(*itSegmentos)->setTouched(true);
+								(*nextitSegmentos)->setObject((*itSegmentos)->getObject());
+								tablaColores[(*itSegmentos)->getObject()]->addArea((*nextitSegmentos)->getRight() - (*nextitSegmentos)->getLeft()+1);
+								++nextitSegmentos;
+								if(nextitSegmentos == nextPtrSegmentos->end() || !traslape)
+								{
+									tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+									tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+									tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+									tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+									pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+									itAuxSegmentos = itSegmentos;
+									++itSegmentos;
+									ptrActual->erase(itAuxSegmentos);
+								} 
+								//posibleApertura = true;
+							}
+				
+							else // Seguimiento simple
+							{
+								(*nextitSegmentos)->setObject((*itSegmentos)->getObject());
+								tablaColores[(*itSegmentos)->getObject()]->addArea((*nextitSegmentos)->getRight() - (*nextitSegmentos)->getLeft() + 1);
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+								++nextitSegmentos;
+							}
+						}
+						else if ((*itSegmentos)->getTouched() == true && !((*nextitSegmentos)->getLeft() > (*itSegmentos)->getRight())) //Existe bloque apertura
+						{ 
+							tablaColores[(*itSegmentos)->getObject()]->incrementCount();
+							(*nextitSegmentos)->setObject((*itSegmentos)->getObject());
+							tablaColores[(*itSegmentos)->getObject()]->addArea((*nextitSegmentos)->getRight() - (*nextitSegmentos)->getLeft()+1);
+							//Se propaga tocado
+							 if((*nextitSegmentos)->getRight() > (*itSegmentos)->getRight())
+							{
+							    (*nextitSegmentos)->setTouched(true);
+							    (*itSegmentos)->setTouched(false);
+							    ++itSegmentos;
+							}
+							else if((*nextitSegmentos)->getRight() == (*itSegmentos)->getRight())
+							{
+								(*nextitSegmentos)->setTouched(false);
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+								++nextitSegmentos;
+							}
+							else 
+							{
+								++nextitSegmentos;   
+							}
+							
+							if(itSegmentos == ptrActual->end() && nextitSegmentos == nextPtrSegmentos->end())
+							{
+								//__nop();
+								;
+							}
+							else if(nextitSegmentos == nextPtrSegmentos->end() || !traslape)
+							{
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+							} 
+						}
+						else //Existe bloque cerradura
+						{
+							if((*itSegmentos)->getObject() == (*nextitSegmentos)->getObject()) //Si hubo apertura antes
+							{
+								tablaColores[(*itSegmentos)->getObject()]->decrementCount();
+							}
+							else 
+							{
+								// Transfiere los momentos estadisticos calculados al nuevo objeto
+								tablaColores[(*itSegmentos)->getObject()]->decrementCount(); // Cuando no hay apertura no se debe hacer
+								itMap = tablaColores.find((*itSegmentos)->getObject());	// Iterador que apunta a localidad a borrar
+								tablaColores[(*nextitSegmentos)->getObject()]->addArea(itMap->second->getArea());	// Transfiere el area calculada al objeto real
+								tablaColores[(*nextitSegmentos)->getObject()]->addCentro(itMap->second->getCentro().getX(),itMap->second->getCentro().getY());
+								tablaColores[(*nextitSegmentos)->getObject()]->addm11(itMap->second->getm11());
+								tablaColores[(*nextitSegmentos)->getObject()]->addm02(itMap->second->getm02());
+								tablaColores[(*nextitSegmentos)->getObject()]->addm20(itMap->second->getm20());
+								tablaColores.erase(itMap);	// Borra el objeto falso
+								
+							}
+							for(int c=0; c<3;c++)
+							{
+								Colores[(*nextitSegmentos)->getObject()+1][c]=Colores[(*itSegmentos)->getObject()+1][c];
+							}
+							(*itSegmentos)->setObject((*nextitSegmentos)->getObject());	//Pasa el Kolor al segmento de arriba. Se borra
+							//Se propaga tocado
+							if((*itSegmentos)->getRight() > (*nextitSegmentos)->getRight())
+							{
+							    (*itSegmentos)->setTouched(true);
+							    (*nextitSegmentos)->setTouched(false);
+							    ++nextitSegmentos; 
+							}
+							else if((*itSegmentos)->getRight() == (*nextitSegmentos)->getRight())
+							{
+								(*nextitSegmentos)->setTouched(false);
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1)*(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i));	//sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+								++nextitSegmentos; 
+							}
+							else
+							{
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+							}
+							if(itSegmentos == ptrActual->end() && nextitSegmentos == nextPtrSegmentos->end())
+							{
+								//__nop();
+								;
+							}
+							else if(nextitSegmentos == nextPtrSegmentos->end() || !traslape)
+							{
+								tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+								tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+								tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+								pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+								itAuxSegmentos = itSegmentos;
+								++itSegmentos;
+								ptrActual->erase(itAuxSegmentos);
+							}
+							else if(itSegmentos == ptrActual->end() || !traslape)
+							{
+								++nextitSegmentos;
+							}
+                        }
+					}
+
+					// Fin
+					else if(nextPtrSegmentos->empty() || ((*itSegmentos)->getRight() < (*nextitSegmentos)->getLeft()))
+					{
+						if(tablaColores[(*itSegmentos)->getObject()]->getCount() == 0) // Fin real
+						{
+							tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+							tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+							tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+							tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+							// Calculo de centroide
+							tablaColores[(*itSegmentos)->getObject()]->addm10(tablaColores[(*itSegmentos)->getObject()]->getCentro().getX());	//m10
+							tablaColores[(*itSegmentos)->getObject()]->addm01(tablaColores[(*itSegmentos)->getObject()]->getCentro().getY());	//m01
+							puntoAux.setX(tablaColores[(*itSegmentos)->getObject()]->getCentro().getX() / (double) tablaColores[(*itSegmentos)->getObject()]->getArea());	//m10/m00
+							puntoAux.setY(tablaColores[(*itSegmentos)->getObject()]->getCentro().getY() / (double) tablaColores[(*itSegmentos)->getObject()]->getArea());	//m01/m00
+							tablaColores[(*itSegmentos)->getObject()]->setCentro(puntoAux);
+							// Calculo de mu
+							m00 = tablaColores[(*itSegmentos)->getObject()]->getArea();
+							m10 = tablaColores[(*itSegmentos)->getObject()]->getm10();
+							m01 = tablaColores[(*itSegmentos)->getObject()]->getm01();
+							m11 = tablaColores[(*itSegmentos)->getObject()]->getm11();
+							m20 = tablaColores[(*itSegmentos)->getObject()]->getm20();
+							m02 = tablaColores[(*itSegmentos)->getObject()]->getm02();
+							tablaColores[(*itSegmentos)->getObject()]->setmu20(m20 - ((m10 * m10) / m00));
+							tablaColores[(*itSegmentos)->getObject()]->setmu02(m02 - ((m01 * m01) / m00));
+							tablaColores[(*itSegmentos)->getObject()]->setmu11(m11 - ((m01 * m10) / m00));
+							// Calculo de nu
+							
+							mu20 = tablaColores[(*itSegmentos)->getObject()]->getmu20();
+							mu02 = tablaColores[(*itSegmentos)->getObject()]->getmu02();
+							mu11 = tablaColores[(*itSegmentos)->getObject()]->getmu11();
+							tablaColores[(*itSegmentos)->getObject()]->setnu20(mu20 / (m00 * m00));
+							tablaColores[(*itSegmentos)->getObject()]->setnu02(mu02 / (m00 * m00));
+							tablaColores[(*itSegmentos)->getObject()]->setnu11(mu11 / (m00 * m00));
+							// Calculo de phi 
+							nu20 = tablaColores[(*itSegmentos)->getObject()]->getnu20();
+							nu02 = tablaColores[(*itSegmentos)->getObject()]->getnu02();
+							nu11 = tablaColores[(*itSegmentos)->getObject()]->getnu11();
+							tablaColores[(*itSegmentos)->getObject()]->setphi1(nu20 + nu02);
+							tablaColores[(*itSegmentos)->getObject()]->setphi2((nu20 + nu02) * (nu20 + nu02) + 4 *(nu11 * nu11));
+							// Calculo de theta
+							tablaColores[(*itSegmentos)->getObject()]->setTheta();
+							// Calculo de fin 
+							pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+							itAuxSegmentos = itSegmentos;
+							++itSegmentos;
+							ptrActual->erase(itAuxSegmentos);
+
+							points.push_back(Point((int) puntoAux.getX(),(int) puntoAux.getY()));
+
+							// Pendientes mas cosas de fin
+						}
+						else // Pseudo fin
+						{
+							tablaColores[(*itSegmentos)->getObject()]->addCentro(sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),1), ((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i);
+							tablaColores[(*itSegmentos)->getObject()]->addm20((sumaRecursiva((*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),2)));	//sum(x^2)
+							tablaColores[(*itSegmentos)->getObject()]->addm02(((*itSegmentos)->getRight() - (*itSegmentos)->getLeft() + 1) * i * i);	//sum(y^2)
+							tablaColores[(*itSegmentos)->getObject()]->addm11(otraSumaRecursiva((*itSegmentos)->getLeft(), (*itSegmentos)->getRight(), i)); // sum(x*y)
+							tablaColores[(*itSegmentos)->getObject()]->decrementCount();
+							pintaSegmento(i, (*itSegmentos)->getLeft(),(*itSegmentos)->getRight(),(*itSegmentos)->getObject());
+							itAuxSegmentos = itSegmentos;
+							++itSegmentos;
+							ptrActual->erase(itAuxSegmentos);
+						}
+					}
+				}
+			}
+		}
+
+		++ptrSegmentos;
+	}
+	ptrSegmentos = (Segmentos *) &filas[0];
+}
+
+void matClean(Mat &srcImage)
+{
+	for(int j = 0; j < srcImage.rows; j++)
+	{
+		srcImage.at<uchar>(j, 0) = 0;				//Left border
+		srcImage.at<uchar>(j,srcImage.cols - 1) = 0; //Right border
+	}
+	for(int i = 0; i < srcImage.cols; i++)
+	{
+		srcImage.at<uchar>(0,i) = 0;				//Down Border
+		srcImage.at<uchar>(srcImage.rows - 1, i) = 0; //Up Border
+	}
+	
+}
+void objectValue2BGR(Mat &srcImage, Mat &destImage) //Toma el numero de objeto que se guardo en cada canal y obtiene el valor BGR de esa posicion en la tabla de colores
+{
+	for(int i = 0; i < srcImage.rows; i++)
+	{
+		for(int j=0;j<srcImage.cols;j++)
+		{
+			destImage.at<Vec3b>(i, j)[0] = Colores[srcImage.at<Vec3b>(i, j)[0]][0];
+			destImage.at<Vec3b>(i, j)[1] = Colores[srcImage.at<Vec3b>(i, j)[1]][1];
+			destImage.at<Vec3b>(i, j)[2] = Colores[srcImage.at<Vec3b>(i, j)[2]][2];
+		}
+	}
+
+}
+void pintaSegmento(int y, int xStart, int xEnd, int objectValue)
+{
+	//unsigned char *colores = &Colores[0][0];
+	//unsigned char *datos = (unsigned char*)(coloredImage.data);
+	unsigned char *renglon = coloredImage.ptr<unsigned char>(y);
+	
+
+	//line(coloredImage, Point(xStart,y), Point(xEnd,y),(Colores[objectValue][0], &Colores[objectValue][1], &Colores[objectValue][2]));
+	for(int i = xStart; i <=xEnd; i++)
+	{
+		(renglon + i * 3)[0] = objectValue + 1;
+		(renglon + i * 3)[1] = objectValue + 1;
+		(renglon + i * 3)[2] = objectValue + 1;
+	}
+}
+
+void llenaColores(unsigned char Colores[][3], int numeroDeColores) //Genera una tabla de colores de acuerdo al n˙mero de colores que se desea
+{
+	int valor = 255 / (numeroDeColores / 6 + 1);
+	for (int i=0; i < numeroDeColores / 6 + 1; i++)
+	{		
+		for(int caso=0; caso < 6; caso++)
+		{
+			if(i + caso < numeroDeColores)
+			{
+				if(caso == 0 && i == 0)
+				{	
+					//Se debe asegurar que Colores[0][]={0,0,0} (Negro)
+					Colores[0][0]=0;
+					Colores[0][1]=0;
+					Colores[0][2]=0;
+				}
+				else
+				{
+
+					switch(caso)
+					{
+						case 0:
+							Colores[6 * i + caso][0] = valor * (i + 1);
+							Colores[6 * i + caso][1] = 0;
+							Colores[6 * i + caso][2] = 0;
+							break;
+						case 1:
+							Colores[6 * i + caso][0] = 0;
+							Colores[6 * i + caso][1] = valor * (i + 1);
+							Colores[6 * i + caso][2] = 0;
+							break;
+						case 2:
+							Colores[6 * i + caso][0] = 0;
+							Colores[6 * i + caso][1] = 0;
+							Colores[6 * i + caso][2] = valor * (i + 1);
+							break;
+						case 3:
+							Colores[6 * i + caso][0] = valor * (i + 1);
+							Colores[6 * i + caso][1] = valor * (i + 1);
+							Colores[6 * i + caso][2] = 0;
+							break;
+						case 4:
+							Colores[6 * i + caso][0] = valor * (i + 1);
+							Colores[6 * i + caso][1] = 0;
+							Colores[6 * i + caso][2] = valor * (i + 1);
+							break;
+						case 5:
+							Colores[6 * i + caso][0] = 0;
+							Colores[6 * i + caso][1] = valor * (i + 1);
+							Colores[6 * i + caso][2] = valor * (i + 1);
+							break;
+						//No se usa el vector de grises caso[i][j]={valor,valor,valor}
+						default:
+							break;
+					}
+				}
+			}
+
+		}
+
+	}
+}
