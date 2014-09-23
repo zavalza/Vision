@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include "definitions.h"
 typedef list <Segmento *> Segmentos;
 map <int, Tabla *> tablaColores;
@@ -2237,4 +2236,3 @@ void generateGreenHistogram (Mat &sourceImage, Mat &greenHistogram)
 
 
 }
->>>>>>> 81c64c02de36817bc90249567f3d46ac953430d5
